@@ -7,6 +7,8 @@ package ciigo
 import (
 	"html/template"
 	"strings"
+
+	"github.com/bytesparadise/libasciidoc/pkg/types"
 )
 
 //
@@ -66,4 +68,23 @@ func (fhtml *fileHTML) unpackMarkup(fa *fileMarkup) {
 	}
 
 	fhtml.Body = template.HTML(fhtml.rawBody.String()) // nolint:gosec
+}
+
+func (fhtml *fileHTML) unpackAdocMetadata(md types.Metadata) {
+	fhtml.Metadata = make(map[string]string, 5)
+
+	var authors strings.Builder
+	for x, author := range md.Authors {
+		if x > 0 {
+			authors.WriteString(",")
+		}
+		authors.WriteString(author.FullName)
+		if len(author.Email) > 0 {
+			authors.WriteString("(" + author.Email + ")")
+		}
+	}
+
+	fhtml.Metadata[metadataAuthor] = authors.String()
+	fhtml.Metadata[metadataDate] = md.LastUpdated
+	fhtml.Metadata[metadataTitle] = md.Title
 }
