@@ -20,3 +20,5 @@ exclude github.com/bytesparadise/libasciidoc v0.3.0
 exclude github.com/bytesparadise/libasciidoc v0.4.0
 
 replace github.com/bytesparadise/libasciidoc => github.com/bytesparadise/libasciidoc v0.2.1-0.20190929071746-6c57b552cca9
+
+replace github.com/shuLhan/share => ../share

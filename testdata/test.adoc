@@ -1,0 +1,46 @@
+:toc:
+= _Example `Document` **title**_
+:metadata key: value 
+Author A, Author B
+v1.1.1, 18 July 2020
+
+This is preamble.
+:other metadata:
+----
+a
+----
+:another metadata : ?
+
+== Comment
+
+//comment without WSP
+
+////
+block
+comment
+////
+
+////
+////
+
+:another metadata : ?
+
+
+== Literal block
+
+ With indent
+by spaces
+
+[literal]
+With literal attribute.
+
+[literal] x
+With literal attribute and trailing characters.
+
+....
+With 4 dots.
+....
+
+.... trailing
+Literal block with trailing.
+....

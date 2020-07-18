@@ -1,0 +1,792 @@
+= AsciiDoctor Document Specification
+Shulhan <ms@kilabit.info>
+6 June 2020
+:toc:
+
+==  Document header
+
+Document header consist of title and optional authors, revision, and zero or
+more metadata.
+The document metadata can be in any order, but the author and revision MUST be
+in order.
+
+----
+DOC_HEADER     =  *(DOC_METADATA / COMMENTS)
+                  "=" SP *ADOC_WORD LF
+                  (*DOC_METADATA)
+                  DOC_AUTHORS LF
+                  (*DOC_METADATA)
+                  DOC_REVISION LF
+                  (*DOC_METADATA)
+----
+
+After the document title, there are metadata regarding document authors,
+revision, and when its created.
+
+----
+DOC_AUTHORS   = MAILBOX *(";" MAILBOX)
+
+  MAILBOX     = STRING [ "<" EMAIL ">" ]
+
+  EMAIL       = WORD "@" WORD "." 1*8ALPHA
+              ; simplified syntax of email format.
+
+
+DOC_REVISION       = DOC_REV_VERSION [ "," DOC_REV_DATE ]
+
+  DOC_REV_VERSION  = "v" 1*DIGIT "." 1*DIGIT "." 1*DIGIT
+
+  DOC_REV_DATE     = 1*2DIGIT 3*ALPHA 4*DIGIT
+----
+
+There are also metadata which affect how the document rendered,
+
+----
+DOC_METADATA     = ":" DOC_META_KEY ":" *DOC_META_VALUE LF
+
+  DOC_META_KEY   = ( "toc" / "sectanchors" / "sectlinks"
+                 /   "imagesdir" / "data-uri" / *STRING ) LF
+
+  DOC_META_VALUE = *STRING
+----
+
+
+===  HTML format
+
+----
+<div id="header">
+  <h1>{ADOC_WORD}</h1>
+  <div class="details">
+    <span id="author" class="author">{DOC_AUTHORS}</span>
+    <br>
+    <span id="revnumber">{DOC_REV_VERSION} , </span>
+    <span id="revdate">{DOC_REV_DATE} </span>
+  </div>
+</div>
+----
+
+
+==  Document preamble
+
+Any content after document title and before the new section is considered as
+document preamble and its rendered inside the "content", not "header".
+
+===  HTML format
+
+----
+<div id="content">
+  <div id="preamble">
+    <div class="sectionbody">
+      {DOC_PREAMBLE}
+    </div>
+  </div>
+  ...
+</div>
+----
+
+
+== Sections
+
+Sections or headers group one or more paragraphs or blocks.
+Each section is started with '=' character or '#' (markdown).
+There are six levels or sections that are allowed in asciidoc, any more than
+that will be considered as paragraph.
+
+----
+SECTION          = [BlockRef]
+                   2*6(EQUAL/HASH) 1*WSP ADOC_LINE LF
+----
+
+===  HTML format
+
+HTML class for section is `sectN`, where N is the level, which is equal to
+number of '=' minus 1.
+
+----
+<div class="sectN">
+  <hN>{ADOC_WORD}</hN>
+  <div class="sectionbody">
+    ...
+  </div>
+</div>
+----
+
+==  Comments
+
+----
+COMMENT_SINGLE = "//" LINE
+
+COMMENT_BLOCK  = "////" LF
+                 *LINE
+                 "////" LF
+
+COMMENTS = *(COMMENT_SINGLE / COMMENT_BLOCK)
+----
+
+==  Common rules
+
+----
+DQUOTE      = %d34  ; "
+HASH        = %d35  ; #
+SQUOTE      = %d39  ; '
+ASTERISK    = %d42  ; *
+HYPHEN      = %d45  ; -
+PERIOD      = %d46  ; .
+COLON       = %d58  ; :
+EQUAL       = %d61  ; =
+LSQUARE     = %d91  ; [
+RSQUARE     = %d93  ; ]
+UNDERSCORE  = %d95  ; _
+GRAVE       = %d96  ; `
+LBRACES     = %d123 ; {
+RBRACES     = %d125 ; }
+
+WORD      = 1*VCHAR           ; Sequence of visible character without
+                              ; white spaces.
+
+STRING    = WORD *(WSP WORD)  ; Sequence of word with spaces between them.
+
+LINE      = STRING LF         ; Sequence of string that end with \n
+
+
+
+REF_ID     = 1*ALPHA *(HYPHEN ALPHA DIGIT)
+----
+
+===  URLs
+
+----
+URL_LOCAL     = "/" 1*VCHAR *("/" VCHAR)
+
+URL_WINDOWS   = "\\" 1*VCHAR *("\" VCHAR)
+
+URL_EXTERNAL  = ( "http" / "https" ) "://" 1*VCHAR
+
+URL_LITERAL   = "++" URL_EXTERNAL "++"
+
+LOCATION      = URL_LOCAL / URL_WINDOWS / URL_EXTERNAL / URL_LITERAL
+----
+
+===  Attributes
+
+----
+Options     = LSQUARE *("%" WORD) RSQUARE LF
+
+OptionValue = WORD *("," WORD)
+
+RoleName    = WORD
+
+AttrRole    = "role" EQUAL (DQUOTE RoleName DQUOTE / RoleName)
+
+AttrTitle   = "title" EQUAL STRING
+
+AttrWindow  = "window" EQUAL  ("_blank")
+
+AttrCaption = "caption" EQUAL STRING
+
+AttrLink    = "link" EQUAL LOCATION
+
+AttrWidth   = "width" EQUAL 1*DIGIT
+
+AttrStart   = "start" EQUAL 1*DIGIT
+
+AttrEnd     = "end" EQUAL 1*DIGIT
+
+AttrOptions = "options" EQUAL OptionValue
+
+AttrCols    = 1*DIGIT *("," 1*DIGIT) [ASTERISK]
+----
+
+
+==  Paragraph formatting
+
+class: `paragraph`
+
+===  Breaks
+
+----
+LINEBreak = SP "+" LF
+----
+
+
+===  Text formatting
+
+----
+InlinePassthrough = "+" 1*LINE "+"
+
+Italic      = UNDERSCORE (Bold / Mono / 1*LINE UNDERSCORE
+
+Bold        = ASTERISK (Italic / Mono / 1*LINE) ASTERISK
+
+Mono        = GRAVE (InlinePassthrough / (Bold / Italic / 1*LINE) ) GRAVE SP
+
+Mono2       = 2GRAVE (Bold / InlinePassthrough / 1*LINE ) 2GRAVE SP
+----
+
+
+===  Inline text formatting
+
+----
+Superscript         = "^" WORD "^"
+
+Subscript           = "~" WORD "~"
+
+InlineItalic        = 2UNDERSCORE STRING 2UNDERSCORE
+
+InlineBold          = 2ASTERISK (InlineItalic / STRING) 2ASTERISK
+
+DoubleQuoteCurved   = DQUOTE GRAVE 1*LINE GRAVE DQUOTE
+
+SingleQuoteCurved   = SQUOTE GRAVE 1*LINE GRAVE SQUOTE
+
+Apostrophe          = GRAVE SQUOTE
+----
+
+
+===  Combination rules
+
+----
+ADOC_WORD    = (Superscript / Subscript / InlineItalic / InlineBold
+             / DoubleQuoteCurved / SingleQuoteCurved / Apostrophe / WORD)
+
+ADOC_STRING  = (InlinePassthrough / Italic / Bold / Mono / ADOC_WORD / STRING)
+
+ADOC_LINE    = ADOC_STRING LF
+----
+
+
+===  Links
+
+----
+LinkAttr        = "," (AttrRole / LinkAttrWindow)
+
+LinkTitle       = LSQUARE *ADOC_STRING *LinkAttr RSQUARE
+
+LinkExternal    = [ "link: "] LOCATION [ LinkTitle ] LF
+
+LinkEMAIL       = [ "mailto" COLON ] EMAIL [ LinkTitle ]
+
+LinkIRC         = "irc://" WORD
+----
+
+===  Inline anchors
+
+----
+InlineAnchorRoles   = LSQUARE RoleName *(WSP RoleName) RSQUARE
+
+InlineAnchor        = 2LSQUARE REF_ID ["," STRING] 2RSQUARE
+                      InlineAnchorRoles Paragraph
+
+InlineAnchorPhrase  = LSQUARE "#" REF_ID *[PERIOD RoleName ] RSQUARE
+                      "#" ADOC_STRING "#"
+
+InlineAnchorTag     = "anchor" COLON REF_ID "[]" Paragraph
+----
+
+===  Cross references
+
+----
+InternalCrossRef  = "<<" REF_ID [ "," WORD ] ">>"
+
+ExternalCrossRef  = "<<" File "#" REF_ID [ "," WORD ] ">>"
+----
+
+===  UI Macro
+
+----
+Kbd     = "kbd" COLON LSQUARE WORD *("+" WORD) RSQUARE
+
+Menu    = "menu" COLON WORD LSQUARE WORD *(">" WORD) RSQUARE
+
+Button  = "btn" COLON LSQUARE WORD RSQUARE
+----
+
+===  Footnote
+
+----
+Footnote = "footnote" COLON LSQUARE Paragraph RSQUARE LF LF
+----
+
+
+
+==  Block
+
+Each block may contain a title and/or reference ID.
+
+----
+BlockTitle        = PERIOD ADOC_LINE LF
+
+BlockRef          = LSQUARE "#" REF_ID *[PERIOD RoleName] RSQUARE LF
+
+BlockRefOld       = 2LSQUARE REF_ID 2RSQUARE LF
+                    LSQUARE  AttrRole RSQUARE
+
+BlockOptionItem   = "," WORD "=" Value
+
+BlockAdoc         = 4EQUAL *WSP LF
+                    Paragraph
+                    4EQUAL *WSP LF
+----
+
+
+===  Page break
+
+style: `page-break-after: always`
+
+----
+PageBreak = "<<<" LF
+----
+
+
+===  Paragraph
+
+class: `paragraph`
+
+----
+ParagraphStyle    = LSQUARE PERIOD 1*ALPHA RSQUARE LF
+
+Paragraph         = [ParagraphStyle] 1*ADOC_LINE LF
+----
+
+===  Literal paragraph
+
+class: `literalblock`
+
+----
+LiteralParagraph  = 1*WSP Paragraph
+----
+
+===  Admonition
+
+class: `admonitionblock`
+
+----
+AdmonitionType    = %s"NOTE" / %s"TIP" / %s"IMPORTANT" / %s"WARNING"
+                  / %s"CAUTION"
+
+Admonition        = AdmonitionType COLON WSP Paragraph
+
+BlockAdmonition   = [BlockTitle]
+                    LSQUARE AdmonitionType *WSP *BlockOptionItem RSQUARE LF
+                    BlockAdoc
+----
+
+
+===  Lists
+
+A blank line is required before and after a list to separated it from other
+blocks.
+
+====  Unordered list
+
+class: `ulist`
+
+----
+ListContinuation  = ("+" LF ADOC_LINE / LF LiteralParagraph)
+
+UnorderedListItem = 1*5(ASTERISK / HYPHEN) SP ADOC_LINE *ListContinuation
+
+UnorderedList     = LF 1*UnorderedListItem LF
+----
+
+====  Ordered list
+
+class: `olist arabic`
+
+----
+OrderderListItem  = 1*5(PERIOD) (SP / HTAB) ADOC_LINE *ListContinuation
+
+OrderedList       = LF 1*OrderedListItem LF
+----
+
+====  Checklist
+
+class: `ulist checklist`
+
+----
+Checklist     = ASTERISK (SP / HTAB)
+                LSQUARE (ASTERISK / "X" / SP ) RSQUARE SP ADOC_LINE
+----
+
+====  Description
+
+class: `dlist`
+
+----
+DescTerminology   = ADOC_STRING 2*5COLON
+
+Description       = DescTerminology (SP / HTAB / LF) ADOC_LINE
+----
+
+===  Images
+
+class: `imageblock`
+
+----
+ImageCaption  = LSQUARE AttrCaption "," AttrLink RSQUARE LF
+
+ImageHeight   = 1*3DIGIT
+
+ImageWidth    = 1*3DIGIT
+
+ImageAttr     = LSQUARE [WORD
+              *("," (ImageHeight / ImageWidth / AttrRole / AttrTitle))
+              ] RSQUARE
+
+Image         = LF
+                [BlockTitle]
+                [BlockRef]
+                [ImageCaption]
+                "image" 2COLON LOCATION ImageAttr LF
+
+InlineImage   = 1*WSP "image" COLON LOCATION ImageAttr
+----
+
+===  Videos
+
+class: `videoblock`
+
+----
+VideoAttr = AttrWidth / AttrStart / AttrEnd / AttrOptions
+
+VideoTag  = LSQUARE [ VideoAttr *("," VideoAttr) ] RSQUARE
+
+Video     = LF
+            [BlockTitle]
+            [BlockRef]
+            "video" 2COLON LOCATION VideoTag LF
+----
+
+===  Source code
+
+class: `listingblock`
+
+----
+LiteralBlock        = "...." LF Paragraph LF "...." LF
+
+CodeLanguage        = WORD
+
+CodeSyntax          = LSQUARE "source" [ "," CodeLanguage ] RSQUARE LF
+
+CalloutID           = 1*DIGIT
+
+CodeCalloutCommon   = ("//" / "#" / ";;") 1*WSP "<" CalloutID ">"
+
+CodeCalloutHTML     = "<!--" CalloutID "-->"
+
+CodeCallout         = (CodeCalloutCommon / CodeCalloutHTML)
+
+CodeSource          = 1*STRING CodeCallout LF
+
+BlockCode           = [BlockTitle]
+                      [CodeSyntax]
+                      4HYPHEN LF
+                      1*CodeSource
+                      4HYPHEN LF
+
+BlockCodeSimple     = [BlockTitle]
+                      [CodeSource] 1CodeSource LF
+
+BlockCodeMarkdown   = 3GRAVE [CodeLanguage] LF
+                      1*CodeSource
+                      3GRAVE LF
+----
+
+===  Sidebar
+
+class: `sidebarblock`
+
+----
+BlockSidebar    = [BlockTitle] 4ASTERISK Paragraph 4ASTERISK LF
+----
+
+===  Example
+
+class: `exampleblock`
+
+----
+BlockExample    = [BlockTitle] BlockAdoc
+----
+
+===  Quotes
+
+class: `quoteblock`
+
+----
+QuoteAuthor = 1*STRING
+
+QuoteSource = 1*ADOC_STRING
+
+QuoteLabel  = LSQUARE %s"quote" *(WSP) ["," QuoteAuthor ["," QuoteSource]]] RSQUARE
+
+BlockQuote  = [QuoteLabel] LF
+              [4UNDERSCORE Paragraph 4UNDERSCORE / Paragraph] LF
+----
+
+Abbreviated quote,
+
+----
+AbbrQuote   = DQUOTE Paragraph DQUOTE LF
+              2HYPHEN [SP] QuoteAuthor ["," QuoteSource] LF
+----
+
+Air quote,
+
+----
+AirQuote    = QuoteLabel LF
+              2DQUOTE LF Paragraph 2DQUOTE LF
+----
+
+Quotes with markdown styles,
+
+----
+QuoteMDLINE   = ">" SP ADOC_LINE
+
+QuoteMDLabel  = ">" SP 2HYPHEN [SP] QuoteAuthor ["," QuoteSource]
+
+QuoteMD       = 1*QuoteMDLINE QuoteMDLabel
+----
+
+
+===  Table
+
+class: `tableblock frame-all grid-all stretch`
+
+----
+TableAttr     = AttrCols / AttrOptions / AttrWidth
+
+TableOptions  = LSQUARE Options *("," TableAttr) RSQUARE
+
+TableColumn   = "|" Paragraph
+
+TableHeader   = TableColumn *("|" [LF] TableColumn)
+
+TableRow      = TableColumn *("|" [LF] TableColumn)
+
+Table         = [BlockTitle]
+                [TableOptions]
+                "|===" LF
+                [ TableHeader LF ]
+                *TableRow LF
+                "|===" LF
+
+CSVLINE         = STRING *("," STRING) LF
+
+TableCSV        = ",===" LF *CSVLINE LF ",===" LF
+
+TableCSVInclude = "|===" LF Include "|===" LF
+
+DSVSep          = 1VCHAR
+
+DSVLINE         = STRING *(DSVSep STRING) LF
+
+TableDSV        = DSVSep "===" LF DSVLINE LF DSVSep "===" LF
+----
+
+
+
+==  Include files
+
+----
+Extension   = ( "adoc" / "asciidoc" / "ad" )
+
+File        = 1*WORD [ PERIOD Extension ]
+
+Include     = "include" 2COLON ( File / URL_EXTERNAL ) "[]" LF
+----
+
+
+
+==  Horizontal rules
+
+----
+HorizontalRule           = LF 3SQUOTE LF                      ; \n'''\n
+----
+
+Markdown styles,
+
+----
+HorizontalRuleMDHyphen   = LF 3HYPHEN LF                      ; \n---\n
+
+HorizontalRuleMDHyphen2  = LF HYPHEN SP HYPHEN SP HYPHEN LF   ; \n- - -\n
+
+HorizontalRuleMDStar     = LF 3STAR LF                        ; \n***\n
+
+HorizontalRuleMDStar2    = LF STAR SP STAR SP STAR LF         ; \n* * *\n
+----
+
+
+==  Comment
+
+----
+SingleComment = "//" LINE
+
+BlockComment  = "////" LF Paragraph "////" LF
+----
+
+
+== Attribute and substitutions
+
+----
+AttrSubs  = LBRACES REF_ID RBRACES
+----
+
+Predefined attributes,
+
+----
+KnownAttr = "blank"   / "empty"  / "sp"    / "nbsp"  / "zwsp"  / "wj"  / "apos"
+          / "quot"    / "lsquo"  / "rsquo" / "ldquo" / "rdquo" / "deg" / "plus"
+          / "plus"    / "brvbar" / "vbar"  / "amp"   / "lt"    / "gt"
+          / "startsb" / "endsb"  / "caret" / "asterisk" / "tilde" / "backslash"
+          / "backtick" / "two-colons" / "two-semicolons" / "cpp"
+----
+
+== Escaping text
+
+----
+Esc           = "\" (ASTERISK / GRAVE / LSQUARE / HYPHEN / EQUAL / LBRACES
+              / "_" / "~" / "^" / )
+
+InlinePass    = "+" WORD "+"
+
+InlineRaw     = "+++" STRING "+++"
+
+InlineRawPass = "pass" COLON LSQUARE STRING RSQUARE
+----
+
+
+==  Bibliography
+
+----
+BibLabel  = LSQUARE "bibliography" RSQUARE
+
+BibItem   = 3LSQUARE REF_ID ["," WORD] 3RSQUARE LINE
+----
+
+
+==  Environment attributes
+
+asciidoctor::
+  Set if the current processor is Asciidoctor.
+
+asciidoctor-version::
+  Asciidoctor version.
+
+backend::
+  Backend used to create the output file.
+
+basebackend::
+  The backend value minus any trailing numbers. For example, if the backend is
+  `docbook5`, the basebackend is `docbook`.
+
+docdate::
+  Last modified date of the source document.
+
+docdatetime::
+  Last modified date and time of the source document.
+
+docdir::
+  Full path of the directory that contains the source document.
+
+docfile::
+  Full path of the source document.
+
+docfilesuffix::
+  File extension of the source document, including the leading period.
+
+docname::
+  Root name of the source document (no leading path or file extension).
+
+doctime::
+  Last modified time of the source document.
+
+doctype::
+  Document type (article, book or manpage).
+
+docyear::
+  Year that the document was last modified.
+
+embedded::
+  Set if content is being converted to an embeddable document (body only).
+
+filetype::
+  File extension of the output file name (without leading period).
+
+htmlsyntax::
+  Syntax used when generating the HTML output (html or xhtml).
+
+localdate::
+  Date when the document was converted.
+
+localdatetime::
+  Date and time when the document was converted.
+
+localtime::
+  Time when the document was converted.
+
+localyear::
+  Year when the document was converted.
+
+outdir::
+  Full path of the output directory.
+
+outfile::
+  Full path of the output file.
+
+outfilesuffix::
+  File extension of the output file (starting with a period) as determined by
+  the backend (.html for html, .xml for docbook, etc.). (The value is not
+  updated to match the file extension of the output file when one is specified
+  explicitly). Safe to modify.
+
+safe-mode-level::
+  Numeric value of the safe mode setting. (UNSAFE=0, SAFE=10, SERVER=10,
+  SECURE=20).
+
+safe-mode-name::
+    Textual value of the safe mode setting.
+
+safe-mode-unsafe:: Set if the safe mode is UNSAFE.
+
+safe-mode-safe:: Set if the safe mode is SAFE.
+
+safe-mode-server:: Set if the safe mode is SERVER.
+
+safe-mode-secure:: Set if the safe mode is SECURE.
+
+user-home::
+  Home directory of the current user. Resolves to . if the safe mode is SERVER
+  or greater.
+
+
+==  Document attributes
+
+data-uri::
+  When the data-uri attribute is set, all images in the document--including
+  admonition icons—-are embedded into the document as data URIs.
+
+imagesdir::
+Images are resolved relative to the value of the imagesdir document attribute,
+which is empty by default. You are encouraged to make use of the imagesdir
+attribute to avoid hard-coding the common path to your images in every image
+macro.
++
+The imagesdir attribute can be an absolute path, relative path, or base URL.
+When the image target is a URL or absolute path, the imagesdir prefix is not
+prepended.
+
+sourcedir:: directory to source code block.
+
+source-highlighter::
+  Syntax highlighting is enabled by setting the source-highlighter attribute in
+  the document header or passed as an argument.
+
+
+==  Parser
+
+Asciidoc document depends on line-feed character, so before parsing we MUST
+replace all "\r\n" with "\n".
+
+The document composed of one or more block.
+
+// vim: set expandtab ts=2 sw=2 tw=80:

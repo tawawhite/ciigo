@@ -3,11 +3,13 @@
 // found in the LICENSE file.
 
 //
-// Package ciigo is a program to write static web server with embedded files
-// using asciidoc and markdown markup languages.
+// Package ciigo provide an implementation of open source text
+// processor and publishing toolchain for converting AsciiDoc in Go.
 //
 // For more information see the README file at the page repository
 // https://github.com/shuLhan/ciigo.
+//
+//	https://asciidoctor.org/
 //
 package ciigo
 
