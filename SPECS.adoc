@@ -11,13 +11,13 @@ The document metadata can be in any order, but the author and revision MUST be
 in order.
 
 ----
-DOC_HEADER     =  *(DOC_METADATA / COMMENTS)
+DOC_HEADER     =  *(DOC_ATTRIBUTE / COMMENTS)
                   "=" SP *ADOC_WORD LF
-                  (*DOC_METADATA)
+                  (*DOC_ATTRIBUTE)
                   DOC_AUTHORS LF
-                  (*DOC_METADATA)
+                  (*DOC_ATTRIBUTE)
                   DOC_REVISION LF
-                  (*DOC_METADATA)
+                  (*DOC_ATTRIBUTE)
 ----
 
 After the document title, there are metadata regarding document authors,
@@ -32,22 +32,24 @@ DOC_AUTHORS   = MAILBOX *(";" MAILBOX)
               ; simplified syntax of email format.
 
 
-DOC_REVISION       = DOC_REV_VERSION [ "," DOC_REV_DATE ]
+DOC_REVISION     = DOC_REV_VERSION [ "," DOC_REV_DATE ]
 
-  DOC_REV_VERSION  = "v" 1*DIGIT "." 1*DIGIT "." 1*DIGIT
+DOC_REV_VERSION  = "v" 1*DIGIT "." 1*DIGIT "." 1*DIGIT
 
-  DOC_REV_DATE     = 1*2DIGIT 3*ALPHA 4*DIGIT
+DOC_REV_DATE     = 1*2DIGIT 3*ALPHA 4*DIGIT
 ----
 
 There are also metadata which affect how the document rendered,
 
 ----
-DOC_METADATA     = ":" DOC_META_KEY ":" *DOC_META_VALUE LF
+DOC_ATTRIBUTE  = ":" DOC_ATTR_KEY ":" *STRING LF
 
-  DOC_META_KEY   = ( "toc" / "sectanchors" / "sectlinks"
-                 /   "imagesdir" / "data-uri" / *STRING ) LF
+DOC_ATTR_KEY   = ( "toc" / "sectanchors" / "sectlinks"
+               /   "imagesdir" / "data-uri" / *META_KEY ) LF
 
-  DOC_META_VALUE = *STRING
+META_KEY_CHAR  = (A..Z | a..z | 0..9 | '_')
+
+META_KEY       = 1META_KEY_CHAR *(META_KEY_CHAR | '-')
 ----
 
 
@@ -309,13 +311,24 @@ Footnote = "footnote" COLON LSQUARE Paragraph RSQUARE LF LF
 
 
 
-==  Block
+==  Blocks
 
-Each block may contain a title and/or reference ID.
+Each block may contain a title and/or metadata.
+
+===  Title
+
+* You can assign a title to any paragraph, list, delimited block, or block
+  macro.
+* The title is displayed immediately above the content.
+* If the content is a figure or image, the title is displayed below the content.
 
 ----
 BlockTitle        = PERIOD ADOC_LINE LF
+----
 
+===  Metadata
+
+----
 BlockRef          = LSQUARE "#" REF_ID *[PERIOD RoleName] RSQUARE LF
 
 BlockRefOld       = 2LSQUARE REF_ID 2RSQUARE LF

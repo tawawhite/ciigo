@@ -1,7 +1,7 @@
-:toc:
 = _Example `Document` **title**_
 :metadata key: value 
 Author A, Author B
+:unclosed metadata:
 v1.1.1, 18 July 2020
 
 This is preamble.
@@ -10,6 +10,8 @@ This is preamble.
 a
 ----
 :another metadata : ?
+
+==Section must have space
 
 == Comment
 
@@ -25,22 +27,138 @@ comment
 
 :another metadata : ?
 
+== Paragraph
+
+.A Title
+Paragraph with title
+
+A paragraph followed by title,
+.This is title
+
+A paragraph followed by attribute,
+:isthis: attribute
+
+A paragraph followed by literal line,
+ this is literal line.
+
+A paragraph followed by list,
+. This is a ordered list item
+
+A paragraph followed by comment.
+// comment.
+This is next line in paragraph.
+
+A paragraph followed by by "+",
++
+This is next line in paragraph.
+
+A paragraph followed by listing block
+----
+Listing.
+----
+This is next line in paragraph.
+
+A paragraph followed by section
+== This is section name
+This is next line in paragraph.
+
+A paragraph followed by literal named
+[literal]
+This is literal
+
+== Blocks
+
+=== Title
+
+.TODO list
+- Learn the AsciiDoc syntax
+- Install Asciidoctor
+- Write my document
 
 == Literal block
 
- With indent
-by spaces
+ A literal paragraph followed by non-space line:
+non-space line.
 
 [literal]
-With literal attribute.
+A literal named.
 
 [literal] x
-With literal attribute and trailing characters.
+A literal named and trailing characters.
 
 ....
 With 4 dots.
 ....
 
-.... trailing
-Literal block with trailing.
-....
+// WARNING:
+//.... Trailing
+//Literal block with trailing.
+//....
+
+== Ordered Lists
+
+. abc
+def
+. ghi
+ jkl
+
+. Previous line is empty
++
+This is a paragraph inside list item.
++
+This is the second paragraph.
+
+. Can list have literal paragraph?
++
+ This is literal paragraph.
++
+This is normal paragraph.
++
+. Next line is block
+----
+This break the list.
+----
+. This start new list
+
+A new paragraph.
+
+. List item followed by [literal]
+[literal]
+literal.
+. Second list item
+
+List that not in order
+
+... List jumped from three dots,
+. To one dot
+
+.... To four dots
+... And back to three again
+
+.. Can sub-list have title?
+.Title
+.. Second level
+
+. Multiple continuation
++
++
+. Second item
+
+How many dots?
+
+. How
+.. Deep
+... Can
+.... We
+..... Go
+...... ?
+....... Seven
+........ Eight
+......... Nine
+.......... Ten
+
+. List followed by section
+= New section
+. List and comment.
+// Comment
+This line separated by comment.

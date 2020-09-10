@@ -20,6 +20,10 @@ serve:
 	go run ./internal/cmd/generate
 	DEBUG=1 go run ./cmd/ciigo-example
 
+test-parser:
+	asciidoctor --attribute stylesheet=empty.css testdata/test.adoc
+	go test -v -run=Open .
+
 build-release: _bin $(RELEASES)
 
 _bin:
