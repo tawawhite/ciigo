@@ -71,9 +71,9 @@ This is literal
 === Title
 
 .TODO list
-- Learn the AsciiDoc syntax
-- Install Asciidoctor
-- Write my document
+* Learn the AsciiDoc syntax
+* Install Asciidoctor
+* Write my document
 
 == Literal block
 
@@ -160,5 +160,74 @@ How many dots?
 . List followed by section
 = New section
 . List and comment.
+// Comment
+This line separated by comment.
+
+
+== Unordered Lists
+
+* abc
+def
+* ghi
+ jkl
+
+* Previous line is empty
++
+This is a paragraph inside list item.
++
+This is the second paragraph.
+
+* Can list have literal paragraph?
++
+ This is literal paragraph.
++
+This is normal paragraph.
++
+* Next line is block
+----
+This break the list.
+----
+* This start new list
+
+A new paragraph.
+
+* List item followed by [literal]
+[literal]
+literal.
+* Second list item
+
+List that not in order
+
+*** List jumped from three asterisk,
+* To one asterisk
+
+**** To four asterisk
+*** And back to three again
+
+** Can sub-list have title?
+.Title
+** Second level
+
+* Multiple continuation
++
++
+* Second item
+
+How deep?
+
+* How
+** Deep
+*** Can
+**** We
+***** Go
+****** ?
+******* Seven
+******** Eight
+********* Nine
+********** Ten
+
+* List followed by section
+= New section
+* List and comment.
 // Comment
 This line separated by comment.

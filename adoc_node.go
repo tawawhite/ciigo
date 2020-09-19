@@ -27,17 +27,20 @@ const (
 	nodeKindBlockListingDelimiter     // Block start and end with "----"
 	nodeKindBlockLiteralNamed         // Block start with "[literal]", end with ""
 	nodeKindBlockLiteralDelimiter     // Block start and end with "...."
+	nodeKindBlockSidebar              // "****"
 	nodeKindListOrdered               // Wrapper.
 	nodeKindListOrderedItem           // 15: Line start with ". "
+	nodeKindListUnordered             // Wrapper.
+	nodeKindListUnorderedItem         // Line start with "* "
 	nodeKindFigure                    //
 	nodeKindImage                     //
-	lineKindEmpty                     //
+	lineKindEmpty                     // 20:
 	lineKindBlockTitle                // Line start with ".<alnum>"
-	lineKindText                      // 20:
 	lineKindBlockComment              // Block start and end with "////"
 	lineKindComment                   // Line start with "//"
 	lineKindAttribute                 // Line start with ":"
-	lineKindListContinue              // A single "+" line
+	lineKindListContinue              // 25: A single "+" line
+	lineKindText                      //
 )
 
 //
@@ -59,6 +62,27 @@ func (node *adocNode) parseListOrdered(line string) {
 	x := 0
 	for ; x < len(line); x++ {
 		if line[x] == '.' {
+			node.level++
+			continue
+		}
+		if line[x] == ' ' || line[x] == '\t' {
+			break
+		}
+	}
+	for ; x < len(line); x++ {
+		if line[x] == ' ' || line[x] == '\t' {
+			continue
+		}
+		break
+	}
+	node.raw.WriteString(line[x:])
+	node.raw.WriteByte('\n')
+}
+
+func (node *adocNode) parseListUnordered(line string) {
+	x := 0
+	for ; x < len(line); x++ {
+		if line[x] == '*' {
 			node.level++
 			continue
 		}
@@ -124,7 +148,6 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 		title := node.raw.String()
 		_, err = fmt.Fprintf(w, `<div class="sect2">
 <h3 id="%s">%s</h3>
-<div class="sectionbody">
 `, toID(title), title)
 
 	case nodeKindSectionL3:
@@ -194,10 +217,23 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 		_, err = fmt.Fprintf(w, `>
 `)
 
-	case nodeKindListOrderedItem:
+	case nodeKindListUnordered:
+		_, err = fmt.Fprintf(w, `<div class="ulist">
+`)
+		err = node.toHTMLBlockTitle(w)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, `<ul>
+`)
+		if err != nil {
+			return err
+		}
+	case nodeKindListOrderedItem, nodeKindListUnorderedItem:
 		_, err = fmt.Fprintf(w, `<li>
 <p>%s</p>
 `, strings.TrimSpace(node.raw.String()))
+
 	}
 	if err != nil {
 		return err
@@ -216,16 +252,23 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 </div>
 `)
 
-	case nodeKindSectionL1, nodeKindSectionL2, nodeKindSectionL3,
-		nodeKindSectionL4, nodeKindSectionL5:
+	case nodeKindSectionL1:
 		_, err = fmt.Fprintf(w, `</div>
 </div>
 `)
-	case nodeKindListOrderedItem:
+	case nodeKindSectionL2, nodeKindSectionL3,
+		nodeKindSectionL4, nodeKindSectionL5:
+		_, err = fmt.Fprintf(w, `</div>
+`)
+	case nodeKindListOrderedItem, nodeKindListUnorderedItem:
 		_, err = fmt.Fprintf(w, `</li>
 `)
 	case nodeKindListOrdered:
 		_, err = fmt.Fprintf(w, `</ol>
+</div>
+`)
+	case nodeKindListUnordered:
+		_, err = fmt.Fprintf(w, `</ul>
 </div>
 `)
 	}

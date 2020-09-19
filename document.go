@@ -201,6 +201,12 @@ func (doc *Document) Parse(content []byte) (err error) {
 
 		case nodeKindListOrderedItem:
 			line, c = doc.parseListOrdered(doc.nodeParent, line)
+			doc.terminateCurrentNode()
+			continue
+
+		case nodeKindListUnorderedItem:
+			line, c = doc.parseListUnordered(doc.nodeParent, line)
+			doc.terminateCurrentNode()
 			continue
 		}
 		line = ""
@@ -213,13 +219,14 @@ func (doc *Document) Parse(content []byte) (err error) {
 //
 // parseListOrdered parser the content as list until it found line that is not
 // list-item.
-// On success it will return list node, non-empty line, and nil error.
+// On success it will return non-empty line and terminator character.
 //
 func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 	got string, c rune,
 ) {
 	list := &adocNode{
-		kind: nodeKindListOrdered,
+		kind:     nodeKindListOrdered,
+		rawTitle: doc.nodeCurrent.rawTitle,
 	}
 	listItem := &adocNode{
 		kind: nodeKindListOrderedItem,
@@ -303,12 +310,166 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 				lineKindEmpty,
 				[]int{
 					nodeKindListOrderedItem,
+					nodeKindListUnorderedItem,
 				})
 			listItem.addChild(node)
 			continue
 		}
 		if doc.kind == nodeKindBlockListingDelimiter {
 			break
+		}
+		if doc.kind == nodeKindSectionL1 ||
+			doc.kind == nodeKindSectionL2 ||
+			doc.kind == nodeKindSectionL3 ||
+			doc.kind == nodeKindSectionL4 ||
+			doc.kind == nodeKindSectionL5 {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
+
+		listItem.raw.WriteString(strings.TrimSpace(line))
+		listItem.raw.WriteByte('\n')
+		line = ""
+	}
+
+	return line, c
+}
+
+func (doc *Document) parseListUnordered(parent *adocNode, line string) (
+	got string, c rune,
+) {
+	list := &adocNode{
+		kind:     nodeKindListUnordered,
+		rawTitle: doc.nodeCurrent.rawTitle,
+	}
+	listItem := &adocNode{
+		kind: nodeKindListUnorderedItem,
+	}
+	listItem.parseListUnordered(line)
+	list.level = listItem.level
+	list.addChild(listItem)
+	parent.addChild(list)
+
+	line = ""
+
+	for {
+		if len(line) == 0 {
+			line, c = doc.line()
+			if len(line) == 0 && c == 0 {
+				break
+			}
+		}
+
+		if doc.kind == lineKindBlockComment {
+			doc.parseIgnoreCommentBlock()
+			line = ""
+			continue
+		}
+		if doc.kind == lineKindComment {
+			line = ""
+			continue
+		}
+		if doc.kind == lineKindListContinue {
+			var node *adocNode
+			node, line, c = doc.parseListBlock()
+			if node != nil {
+				listItem.addChild(node)
+			}
+			continue
+		}
+		if doc.kind == lineKindEmpty {
+			// Keep going, maybe next line is still a list.
+			continue
+		}
+		if doc.kind == nodeKindListOrderedItem {
+			node := &adocNode{
+				kind: nodeKindListOrderedItem,
+			}
+			node.parseListOrdered(line)
+			if listItem.level == node.level {
+				list.addChild(node)
+				listItem = node
+				line = ""
+				continue
+			}
+
+			// Case:
+			// ... Parent
+			// . child
+			// ... Next list
+			parentListItem := parent
+			for parentListItem != nil {
+				if parentListItem.kind == doc.kind && parentListItem.level == node.level {
+					return line, c
+				}
+				parentListItem = parentListItem.parent
+			}
+
+			line, c = doc.parseListOrdered(listItem, line)
+			continue
+		}
+
+		if doc.kind == nodeKindListUnorderedItem {
+			node := &adocNode{
+				kind: nodeKindListUnorderedItem,
+			}
+			node.parseListUnordered(line)
+			if listItem.level == node.level {
+				list.addChild(node)
+				listItem = node
+				line = ""
+				continue
+			}
+
+			// Case:
+			// *** Parent
+			// * child
+			// *** Next list
+			parentListItem := parent
+			for parentListItem != nil {
+				if parentListItem.kind == doc.kind && parentListItem.level == node.level {
+					return line, c
+				}
+				parentListItem = parentListItem.parent
+			}
+
+			line, c = doc.parseListUnordered(listItem, line)
+			continue
+		}
+
+		if doc.kind == lineKindText {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
+		if doc.kind == nodeKindBlockLiteralNamed {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+			node := &adocNode{
+				kind: doc.kind,
+			}
+			line, c = doc.consumeLinesUntil(node,
+				lineKindEmpty,
+				[]int{
+					nodeKindListOrderedItem,
+					nodeKindListUnorderedItem,
+				})
+			listItem.addChild(node)
+			continue
+		}
+		if doc.kind == nodeKindBlockListingDelimiter {
+			break
+		}
+		if doc.kind == nodeKindSectionL1 ||
+			doc.kind == nodeKindSectionL2 ||
+			doc.kind == nodeKindSectionL3 ||
+			doc.kind == nodeKindSectionL4 ||
+			doc.kind == nodeKindSectionL5 {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
 		}
 
 		listItem.raw.WriteString(strings.TrimSpace(line))
@@ -357,6 +518,7 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 				[]int{
 					lineKindListContinue,
 					nodeKindListOrderedItem,
+					nodeKindListUnorderedItem,
 				})
 			break
 		}
@@ -371,10 +533,8 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 				[]int{
 					lineKindListContinue,
 					nodeKindListOrderedItem,
+					nodeKindListUnorderedItem,
 				})
-			break
-		}
-		if kind == nodeKindListOrderedItem {
 			break
 		}
 		if kind == nodeKindBlockListingDelimiter {
@@ -383,6 +543,12 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 			}
 			doc.consumeLinesUntil(node, kind, nil)
 			line = ""
+			break
+		}
+		if kind == nodeKindListOrderedItem {
+			break
+		}
+		if kind == nodeKindListUnorderedItem {
 			break
 		}
 	}
@@ -748,6 +914,23 @@ func whatKindOfLine(lineNum int, line string) (kind int) {
 				}
 			}
 		}
+	} else if line[0] == '*' {
+		if len(line) <= 1 {
+			kind = lineKindText
+		} else if line == "****" {
+			kind = nodeKindBlockSidebar
+		} else {
+			x := 0
+			for ; x < len(line); x++ {
+				if line[x] == '*' {
+					continue
+				}
+				if line[x] == ' ' || line[x] == '\t' {
+					kind = nodeKindListUnorderedItem
+				}
+			}
+		}
+
 	} else if line == "+" {
 		kind = lineKindListContinue
 	} else if line == "[literal]" {
