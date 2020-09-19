@@ -108,7 +108,7 @@ func (doc *Document) Parse(content []byte) (err error) {
 			line = ""
 			continue
 
-		case lineKindText:
+		case lineKindText, lineKindListContinue:
 			if doc.nodeCurrent.kind == nodeKindUnknown {
 				doc.nodeCurrent.kind = nodeKindParagraph
 				doc.nodeCurrent.raw.WriteString(line)
@@ -120,6 +120,7 @@ func (doc *Document) Parse(content []byte) (err error) {
 						nodeKindBlockListingDelimiter,
 						nodeKindBlockLiteralDelimiter,
 						nodeKindBlockLiteralNamed,
+						lineKindListContinue,
 					})
 				doc.terminateCurrentNode()
 			} else {
@@ -164,7 +165,7 @@ func (doc *Document) Parse(content []byte) (err error) {
 
 		case nodeKindLiteralParagraph:
 			doc.nodeCurrent.kind = doc.kind
-			doc.nodeCurrent.raw.WriteString(strings.TrimLeft(line, " \t"))
+			doc.nodeCurrent.raw.WriteString(line)
 			doc.nodeCurrent.raw.WriteByte('\n')
 			doc.consumeLinesUntil(
 				doc.nodeCurrent,
@@ -224,6 +225,7 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 		kind: nodeKindListOrderedItem,
 	}
 	listItem.parseListOrdered(line)
+	list.level = listItem.level
 	list.addChild(listItem)
 	parent.addChild(list)
 
@@ -309,7 +311,7 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 			break
 		}
 
-		listItem.raw.WriteString(line)
+		listItem.raw.WriteString(strings.TrimSpace(line))
 		listItem.raw.WriteByte('\n')
 		line = ""
 	}

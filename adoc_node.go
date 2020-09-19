@@ -162,7 +162,7 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 <pre>%s</pre>
 </div>
 </div>
-`, strings.TrimSpace(node.raw.String()))
+`, strings.TrimRight(node.raw.String(), " \t\r\n"))
 
 	case nodeKindBlockListingDelimiter:
 		_, err = fmt.Fprintf(w, `<div class="listingblock">
@@ -173,13 +173,25 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 `, strings.TrimSpace(node.raw.String()))
 
 	case nodeKindListOrdered:
-		_, err = fmt.Fprintf(w, `<div class="olist arabic">
-`)
+		class, tipe := getListOrderedClassType(node.level)
+
+		_, err = fmt.Fprintf(w, `<div class="olist %s">
+`, class)
 		if err != nil {
 			return err
 		}
 		err = node.toHTMLBlockTitle(w)
-		_, err = fmt.Fprintf(w, `<ol class="arabic">
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, `<ol class="%s"`, class)
+		if err != nil {
+			return err
+		}
+		if len(tipe) > 0 {
+			_, err = fmt.Fprintf(w, ` type="%s"`, tipe)
+		}
+		_, err = fmt.Fprintf(w, `>
 `)
 
 	case nodeKindListOrderedItem:
@@ -237,6 +249,20 @@ func (node *adocNode) toHTMLBlockTitle(w io.Writer) (err error) {
 `, node.rawTitle)
 	}
 	return err
+}
+
+func getListOrderedClassType(level int) (class, tipe string) {
+	switch level {
+	case 2:
+		return "loweralpha", "a"
+	case 3:
+		return "lowerroman", "i"
+	case 4:
+		return "upperalpha", "A"
+	case 5:
+		return "upperroman", "I"
+	}
+	return "arabic", ""
 }
 
 func toID(str string) string {
