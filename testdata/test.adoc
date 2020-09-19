@@ -231,3 +231,20 @@ How deep?
 * List and comment.
 // Comment
 This line separated by comment.
+
+==  Mixed list
+
+. Orderer 1
+* Unordered 1
+* Unordered 2
+. Orderer 1
+
+.. Ordered L2
+* Unordered L1
+** Unordered L2
+* Unordered L1
+. Ordered L1
+* Unordered L1
+** Unordered L2
+* Unordered L1
+.. Ordered L2

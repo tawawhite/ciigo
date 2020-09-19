@@ -303,6 +303,28 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 			line, c = doc.parseListOrdered(listItem, line)
 			continue
 		}
+		if doc.kind == nodeKindListUnorderedItem {
+			node := &adocNode{
+				kind: nodeKindListUnorderedItem,
+			}
+			node.parseListUnordered(line)
+
+			// Case:
+			// . Parent
+			// * child
+			// . Next list
+			parentListItem := parent
+			for parentListItem != nil {
+				if parentListItem.kind == doc.kind && parentListItem.level == node.level {
+					return line, c
+				}
+				parentListItem = parentListItem.parent
+			}
+
+			line, c = doc.parseListUnordered(listItem, line)
+			continue
+		}
+
 		if doc.kind == lineKindText {
 			if doc.prevKind == lineKindEmpty {
 				break
@@ -396,17 +418,11 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 				kind: nodeKindListOrderedItem,
 			}
 			node.parseListOrdered(line)
-			if listItem.level == node.level {
-				list.addChild(node)
-				listItem = node
-				line = ""
-				continue
-			}
 
 			// Case:
-			// ... Parent
-			// . child
-			// ... Next list
+			// . Parent
+			// * child
+			// . Next list
 			parentListItem := parent
 			for parentListItem != nil {
 				if parentListItem.kind == doc.kind && parentListItem.level == node.level {
