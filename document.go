@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/shuLhan/share/lib/ascii"
 	"github.com/shuLhan/share/lib/parser"
@@ -21,12 +23,13 @@ type Document struct {
 	file string
 	p    *parser.Parser
 
-	authors    string
-	revnumber  string
-	revdate    string
-	attributes map[string]string
-	title      string
-	lineNum    int
+	authors     string
+	revnumber   string
+	revdate     string
+	lastUpdated time.Time
+	attributes  map[string]string
+	title       string
+	lineNum     int
 
 	header  *adocNode
 	content *adocNode
@@ -41,14 +44,20 @@ type Document struct {
 // Open the ascidoc file and parse it.
 //
 func Open(file string) (doc *Document, err error) {
+	fi, err := os.Stat(file)
+	if err != nil {
+		return nil, err
+	}
+
 	raw, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("ciigo.Open %s: %w", file, err)
 	}
 
 	doc = &Document{
-		file:       file,
-		attributes: make(map[string]string),
+		file:        file,
+		lastUpdated: fi.ModTime().Round(time.Second),
+		attributes:  make(map[string]string),
 		content: &adocNode{
 			kind: nodeKindDocContent,
 		},
@@ -735,10 +744,10 @@ func (doc *Document) parseHeaderRevision(line string) bool {
 
 	idx := strings.IndexByte(line, ',')
 	if idx > 0 {
-		doc.revnumber = "version " + line[1:idx]
+		doc.revnumber = line[1:idx]
 		doc.revdate = strings.TrimSpace(line[idx+1:])
 	} else {
-		doc.revnumber = "version " + line[1:]
+		doc.revnumber = line[1:]
 	}
 	return true
 }
@@ -779,7 +788,7 @@ func (doc *Document) ToHTML(w io.Writer) (err error) {
 		}
 
 		if len(doc.revnumber) > 0 {
-			_, err = fmt.Fprintf(w, `<span id="revnumber">%s%s</span>
+			_, err = fmt.Fprintf(w, `<span id="revnumber">version %s%s</span>
 `, doc.revnumber, sep)
 			if err != nil {
 				return err
@@ -821,14 +830,15 @@ func (doc *Document) ToHTML(w io.Writer) (err error) {
 	}
 
 	_, err = fmt.Fprintf(w, `</div>
-`)
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintf(w, `</body>
+<div id="footer">
+<div id="footer-text">
+Version %s<br>
+Last updated %s
+</div>
+</div>
+</body>
 </html>
-`)
+`, doc.revnumber, doc.lastUpdated.Format("2006-01-02 15:04:05 Z0700"))
 
 	return err
 }
