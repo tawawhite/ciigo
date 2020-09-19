@@ -516,24 +516,22 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 			break
 		}
 
-		kind := whatKindOfLine(doc.lineNum, line)
-
-		if kind == lineKindBlockComment {
+		if doc.kind == lineKindBlockComment {
 			doc.parseIgnoreCommentBlock()
 			continue
 		}
-		if kind == lineKindComment {
+		if doc.kind == lineKindComment {
 			continue
 		}
-		if kind == lineKindEmpty {
+		if doc.kind == lineKindEmpty {
 			return node, line, c
 		}
-		if kind == lineKindListContinue {
+		if doc.kind == lineKindListContinue {
 			continue
 		}
-		if kind == nodeKindLiteralParagraph {
+		if doc.kind == nodeKindLiteralParagraph {
 			node = &adocNode{
-				kind: kind,
+				kind: doc.kind,
 			}
 			node.raw.WriteString(strings.TrimLeft(line, " \t"))
 			node.raw.WriteByte('\n')
@@ -547,7 +545,7 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 				})
 			break
 		}
-		if kind == lineKindText {
+		if doc.kind == lineKindText {
 			node = &adocNode{
 				kind: nodeKindParagraph,
 			}
@@ -562,18 +560,18 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 				})
 			break
 		}
-		if kind == nodeKindBlockListingDelimiter {
+		if doc.kind == nodeKindBlockListingDelimiter {
 			node = &adocNode{
-				kind: kind,
+				kind: doc.kind,
 			}
-			doc.consumeLinesUntil(node, kind, nil)
+			doc.consumeLinesUntil(node, doc.kind, nil)
 			line = ""
 			break
 		}
-		if kind == nodeKindListOrderedItem {
+		if doc.kind == nodeKindListOrderedItem {
 			break
 		}
-		if kind == nodeKindListUnorderedItem {
+		if doc.kind == nodeKindListUnorderedItem {
 			break
 		}
 	}
@@ -622,7 +620,8 @@ func (doc *Document) line() (line string, c rune) {
 	doc.prevKind = doc.kind
 	doc.lineNum++
 	line, c = doc.p.Line()
-	doc.kind = whatKindOfLine(doc.lineNum, line)
+	line = doc.whatKindOfLine(line)
+	fmt.Printf("line %3d: kind %3d: %s\n", doc.lineNum, doc.kind, line)
 	return line, c
 }
 
@@ -888,47 +887,77 @@ func isTitle(line string) bool {
 }
 
 //
-// whatKindOfLine return the kind of line.
-// It will return lineKindText as default if the line does not match with
-// known asciidoc syntax.
+// whatKindOfLine set the kind of line.
+// It will set kind to lineKindText as default if the line does not match with
+// known syntax.
 //
-func whatKindOfLine(lineNum int, line string) (kind int) {
-	kind = lineKindText
+func (doc *Document) whatKindOfLine(line string) string {
+	doc.kind = lineKindText
 	if len(line) == 0 {
-		kind = lineKindEmpty
-	} else if strings.HasPrefix(line, "////") {
+		doc.kind = lineKindEmpty
+		return line
+	}
+	if strings.HasPrefix(line, "////") {
 		// Check for comment block first, since we use HasPrefix to
 		// check for single line comment.
-		kind = lineKindBlockComment
-	} else if strings.HasPrefix(line, "//") {
+		doc.kind = lineKindBlockComment
+		return line
+	}
+	if strings.HasPrefix(line, "//") {
 		// Use HasPrefix to allow single line comment without space,
 		// for example "//comment".
-		kind = lineKindComment
-	} else if line[0] == ':' {
-		kind = lineKindAttribute
-	} else if line[0] == ' ' || line[0] == '\t' {
-		kind = nodeKindLiteralParagraph
-	} else if line[0] == '=' {
+		doc.kind = lineKindComment
+		return line
+	}
+
+	var (
+		x        int
+		r        rune
+		hasSpace bool
+	)
+	for x, r = range line {
+		if r == ' ' || r == '\t' {
+			hasSpace = true
+			continue
+		}
+		break
+	}
+	if hasSpace {
+		line = line[x:]
+		// A line idented with space only allowed on list item,
+		// otherwise it would be set as literal paragraph.
+		if line[0] != '*' && line[0] != '.' {
+			doc.kind = nodeKindLiteralParagraph
+			return line
+		}
+	}
+	if line[0] == ':' {
+		doc.kind = lineKindAttribute
+		return line
+	}
+	if line[0] == '=' {
 		subs := strings.Fields(line)
 		switch subs[0] {
 		case "==":
-			kind = nodeKindSectionL1
+			doc.kind = nodeKindSectionL1
 		case "===":
-			kind = nodeKindSectionL2
+			doc.kind = nodeKindSectionL2
 		case "====":
-			kind = nodeKindSectionL3
+			doc.kind = nodeKindSectionL3
 		case "=====":
-			kind = nodeKindSectionL4
+			doc.kind = nodeKindSectionL4
 		case "======":
-			kind = nodeKindSectionL5
+			doc.kind = nodeKindSectionL5
 		}
-	} else if line[0] == '.' {
+		return line
+	}
+	if line[0] == '.' {
 		if len(line) <= 1 {
-			kind = lineKindText
+			doc.kind = lineKindText
 		} else if line == "...." {
-			kind = nodeKindBlockLiteralDelimiter
+			doc.kind = nodeKindBlockLiteralDelimiter
 		} else if ascii.IsAlnum(line[1]) {
-			kind = lineKindBlockTitle
+			doc.kind = lineKindBlockTitle
 		} else {
 			x := 0
 			for ; x < len(line); x++ {
@@ -936,15 +965,18 @@ func whatKindOfLine(lineNum int, line string) (kind int) {
 					continue
 				}
 				if line[x] == ' ' || line[x] == '\t' {
-					kind = nodeKindListOrderedItem
+					doc.kind = nodeKindListOrderedItem
+					return line
 				}
 			}
 		}
-	} else if line[0] == '*' {
+		return line
+	}
+	if line[0] == '*' {
 		if len(line) <= 1 {
-			kind = lineKindText
+			doc.kind = lineKindText
 		} else if line == "****" {
-			kind = nodeKindBlockSidebar
+			doc.kind = nodeKindBlockSidebar
 		} else {
 			x := 0
 			for ; x < len(line); x++ {
@@ -952,18 +984,19 @@ func whatKindOfLine(lineNum int, line string) (kind int) {
 					continue
 				}
 				if line[x] == ' ' || line[x] == '\t' {
-					kind = nodeKindListUnorderedItem
+					doc.kind = nodeKindListUnorderedItem
+					return line
 				}
 			}
 		}
-
-	} else if line == "+" {
-		kind = lineKindListContinue
-	} else if line == "[literal]" {
-		kind = nodeKindBlockLiteralNamed
-	} else if line == "----" {
-		kind = nodeKindBlockListingDelimiter
+		return line
 	}
-	fmt.Printf("line %3d: kind %3d: %s\n", lineNum, kind, line)
-	return kind
+	if line == "+" {
+		doc.kind = lineKindListContinue
+	} else if line == "[literal]" {
+		doc.kind = nodeKindBlockLiteralNamed
+	} else if line == "----" {
+		doc.kind = nodeKindBlockListingDelimiter
+	}
+	return line
 }

@@ -397,7 +397,7 @@ class: `ulist`
 ----
 ListContinuation  = ("+" LF ADOC_LINE / LF LiteralParagraph)
 
-UnorderedListItem = 1*5(ASTERISK / HYPHEN) SP ADOC_LINE *ListContinuation
+UnorderedListItem = *WSP 1*5(ASTERISK / HYPHEN) SP ADOC_LINE *ListContinuation
 
 UnorderedList     = LF 1*UnorderedListItem LF
 ----
@@ -407,7 +407,7 @@ UnorderedList     = LF 1*UnorderedListItem LF
 class: `olist arabic`
 
 ----
-OrderderListItem  = 1*5(PERIOD) (SP / HTAB) ADOC_LINE *ListContinuation
+OrderderListItem  = *WSP 1*5(PERIOD) (SP / HTAB) ADOC_LINE *ListContinuation
 
 OrderedList       = LF 1*OrderedListItem LF
 ----
