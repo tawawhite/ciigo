@@ -25,21 +25,22 @@ const (
 	nodeKindSectionL5                 // Line started with "======"
 	nodeKindParagraph                 // Wrapper.
 	nodeKindLiteralParagraph          // 10: Line start with space
+	nodeKindBlockImage                // "image::"
 	nodeKindBlockListingDelimiter     // Block start and end with "----"
 	nodeKindBlockLiteralNamed         // Block start with "[literal]", end with ""
 	nodeKindBlockLiteralDelimiter     // Block start and end with "...."
+	nodeKindBlockOpen                 // 15: Block wrapped with "--"
 	nodeKindBlockSidebar              // "****"
-	nodeKindListOrdered               // 15: Wrapper.
+	nodeKindListOrdered               // Wrapper.
 	nodeKindListOrderedItem           // Line start with ". "
 	nodeKindListUnordered             // Wrapper.
-	nodeKindListUnorderedItem         // Line start with "* "
+	nodeKindListUnorderedItem         // 20: Line start with "* "
 	nodeKindListDescription           // Wrapper.
-	nodeKindListDescriptionItem       // 20: Line that has "::" + WSP
-	nodeKindBlockImage                // "image::"
+	nodeKindListDescriptionItem       // Line that has "::" + WSP
 	lineKindEmpty                     //
 	lineKindBlockTitle                // Line start with ".<alnum>"
-	lineKindBlockComment              // Block start and end with "////"
-	lineKindComment                   // 25: Line start with "//"
+	lineKindBlockComment              // 25: Block start and end with "////"
+	lineKindComment                   // Line start with "//"
 	lineKindAttribute                 // Line start with ":"
 	lineKindHorizontalRule            // "'''", "---", "- - -", "***", "* * *"
 	lineKindListContinue              // A single "+" line
@@ -279,6 +280,8 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "PAGE_BREAK", nil)
 	case nodeKindBlockImage:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_IMAGE", node)
+	case nodeKindBlockOpen:
+		err = tmpl.ExecuteTemplate(w, "BEGIN_BLOCK_OPEN", node)
 	}
 	if err != nil {
 		return err
@@ -308,6 +311,8 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "END_LIST_UNORDERED", nil)
 	case nodeKindListDescription:
 		err = tmpl.ExecuteTemplate(w, "END_LIST_DESCRIPTION", node)
+	case nodeKindBlockOpen:
+		err = tmpl.ExecuteTemplate(w, "END_BLOCK_OPEN", node)
 	}
 	if err != nil {
 		return err

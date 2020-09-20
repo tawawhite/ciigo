@@ -9,8 +9,14 @@ import (
 )
 
 func newHTMLTemplate() (tmpl *template.Template, err error) {
-	tmpl = template.New("HTML")
-	tmpl, err = tmpl.Parse(`
+	imageCounter := 0
+
+	tmpl, err = template.New("HTML").Funcs(map[string]interface{}{
+		"imageCounter": func() int {
+			imageCounter++
+			return imageCounter
+		},
+	}).Parse(`
 {{- define "BEGIN" -}}
 <!DOCTYPE html>
 <html lang="en">
@@ -240,6 +246,20 @@ Last updated {{.LastUpdated}}
 <img src="{{.Content}}" alt="{{.Alt}}"
 	{{- if .Width}} width="{{.Width}}"{{end}}
 	{{- if .Height}} height="{{.Height}}"{{end}}>
+</div>
+{{- with $caption := .Title}}
+<div class="title">Figure {{imageCounter}}. {{$caption}}</div>
+{{- end}}
+</div>
+{{- end}}
+{{/*----------------------------------------------------------------------*/}}
+{{- define "BEGIN_BLOCK_OPEN"}}
+<div class="openblock {{- .Classes}}">
+{{- template "BLOCK_TITLE" .}}
+<div class="content">
+{{- end}}
+
+{{- define "END_BLOCK_OPEN"}}
 </div>
 </div>
 {{- end}}

@@ -414,3 +414,25 @@ image::sunset.png[Tiger7,100,100]
 
 [.righx.center]
 image::sunset.png[Tiger8,100,100]
+
+===  Float group
+
+[.float-group]
+--
+[.left]
+.Image A
+image::a.png[A,240,180]
+
+[.left]
+.Image B
+image::b.png[B,240,180]
+--
+
+Text below images.
+
+== Block open
+
+.Section inside
+--
+== Section
+--
