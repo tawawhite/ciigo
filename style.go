@@ -56,7 +56,7 @@ var adocStyles map[string]int64 = map[string]int64{
 //
 // parseStyle parse line that start with "[" and end with "]".
 //
-func (doc *Document) parseStyle(line string) int64 {
+func parseStyle(line string) int64 {
 	line = strings.ToLower(strings.Trim(line, "[]"))
 	parts := strings.Split(line, ",")
 	styleName := strings.Trim(parts[0], "\"")

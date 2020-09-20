@@ -164,7 +164,11 @@ Last updated {{.LastUpdated}}
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "BEGIN_LIST_DESCRIPTION"}}
-	{{- if .IsStyleHorizontal}}
+	{{- if .IsStyleQandA}}
+<div class="qlist qanda">
+{{- template "BLOCK_TITLE" .}}
+<ol>
+	{{- else if .IsStyleHorizontal}}
 <div class="hdlist">
 {{- template "BLOCK_TITLE" .}}
 <table>
@@ -175,7 +179,9 @@ Last updated {{.LastUpdated}}
 	{{- end}}
 {{- end}}
 {{- define "END_LIST_DESCRIPTION"}}
-	{{- if .IsStyleHorizontal}}
+	{{- if .IsStyleQandA}}
+</ol>
+	{{- else if .IsStyleHorizontal}}
 </table>
 	{{- else}}
 </dl>
@@ -192,7 +198,10 @@ Last updated {{.LastUpdated}}
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "BEGIN_LIST_DESCRIPTION_ITEM"}}
-	{{- if .IsStyleHorizontal}}
+	{{- if .IsStyleQandA}}
+<li>
+<p><em>{{.Terminology}}</em></p>
+	{{- else if .IsStyleHorizontal}}
 <tr>
 <td class="hdlist1">
 {{.Terminology}}
@@ -207,7 +216,9 @@ Last updated {{.LastUpdated}}
 	{{- end}}
 {{- end}}
 {{- define "END_LIST_DESCRIPTION_ITEM"}}
-	{{- if .IsStyleHorizontal}}
+	{{- if .IsStyleQandA}}
+</li>
+	{{- else if .IsStyleHorizontal}}
 </td>
 </tr>
 	{{- else}}

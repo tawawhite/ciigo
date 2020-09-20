@@ -345,3 +345,13 @@ Cloud Providers::
   IaaS:::
     . Amazon EC2
     . Rackspace
+
+
+== Question and Answers
+
+[qanda]
+What is Asciidoctor?::
+  An implementation of the AsciiDoc processor in Ruby.
+What is the answer to the Ultimate Question?:: 42
+
+A new paragraph.

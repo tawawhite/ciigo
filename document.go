@@ -118,7 +118,7 @@ func (doc *Document) Parse(content []byte) (err error) {
 			line = ""
 			continue
 		case lineKindStyle:
-			style := doc.parseStyle(line)
+			style := parseStyle(line)
 			if style != styleNone {
 				doc.nodeCurrent.style |= style
 				line = ""
@@ -1038,7 +1038,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 		// A line idented with space only allowed on list item,
 		// otherwise it would be set as literal paragraph.
 
-		if lineIsDescriptionItem(line) {
+		if isLineDescriptionItem(line) {
 			doc.kind = nodeKindListDescriptionItem
 			return line
 		}
@@ -1115,13 +1115,13 @@ func (doc *Document) whatKindOfLine(line string) string {
 		doc.kind = lineKindListContinue
 	} else if line == "----" {
 		doc.kind = nodeKindBlockListingDelimiter
-	} else if lineIsDescriptionItem(line) {
+	} else if isLineDescriptionItem(line) {
 		doc.kind = nodeKindListDescriptionItem
 	}
 	return line
 }
 
-func lineIsDescriptionItem(line string) bool {
+func isLineDescriptionItem(line string) bool {
 	x := strings.Index(line, ":: ")
 	if x > 0 {
 		return true

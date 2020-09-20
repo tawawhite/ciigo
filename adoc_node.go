@@ -298,6 +298,10 @@ func (node *adocNode) IsStyleHorizontal() bool {
 	return node.style&styleDescriptionHorizontal > 0
 }
 
+func (node *adocNode) IsStyleQandA() bool {
+	return node.style&styleDescriptionQandA > 0
+}
+
 func (node *adocNode) Terminology() string {
 	return node.rawTerm.String()
 }
