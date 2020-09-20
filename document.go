@@ -78,7 +78,7 @@ func Open(file string) (doc *Document, err error) {
 func (doc *Document) Parse(content []byte) (err error) {
 	doc.p = parser.New(string(content), "\n")
 
-	line, c := doc.parseHeader()
+	spaces, line, c := doc.parseHeader()
 
 	doc.nodeParent = &adocNode{
 		kind: nodeKindPreamble,
@@ -90,7 +90,7 @@ func (doc *Document) Parse(content []byte) (err error) {
 
 	for {
 		if len(line) == 0 {
-			line, c = doc.line()
+			spaces, line, c = doc.line()
 			if len(line) == 0 && c == 0 {
 				return nil
 			}
@@ -198,7 +198,7 @@ func (doc *Document) Parse(content []byte) (err error) {
 
 		case nodeKindLiteralParagraph:
 			doc.nodeCurrent.kind = doc.kind
-			doc.nodeCurrent.raw.WriteString(line)
+			doc.nodeCurrent.raw.WriteString(spaces + line)
 			doc.nodeCurrent.raw.WriteByte('\n')
 			doc.consumeLinesUntil(
 				doc.nodeCurrent,
@@ -291,7 +291,7 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 
 	for {
 		if len(line) == 0 {
-			line, c = doc.line()
+			_, line, c = doc.line()
 			if len(line) == 0 && c == 0 {
 				break
 			}
@@ -445,7 +445,7 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 
 	for {
 		if len(line) == 0 {
-			line, c = doc.line()
+			_, line, c = doc.line()
 			if len(line) == 0 && c == 0 {
 				break
 			}
@@ -597,11 +597,11 @@ func (doc *Document) parseListDescription(parent *adocNode, line string) (
 	list.level = listItem.level
 	list.addChild(listItem)
 	parent.addChild(list)
-	line = ""
 
+	line = ""
 	for {
 		if len(line) == 0 {
-			line, c = doc.line()
+			_, line, c = doc.line()
 			if len(line) == 0 && c == 0 {
 				break
 			}
@@ -706,7 +706,7 @@ func (doc *Document) parseListDescription(parent *adocNode, line string) (
 //
 func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 	for {
-		line, c = doc.line()
+		_, line, c = doc.line()
 		if len(line) == 0 && c == 0 {
 			break
 		}
@@ -780,8 +780,9 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 func (doc *Document) consumeLinesUntil(node *adocNode, term int, terms []int) (
 	line string, c rune,
 ) {
+	spaces := ""
 	for {
-		line, c = doc.line()
+		spaces, line, c = doc.line()
 		if len(line) == 0 && c == 0 {
 			break
 		}
@@ -800,6 +801,9 @@ func (doc *Document) consumeLinesUntil(node *adocNode, term int, terms []int) (
 				return line, c
 			}
 		}
+		if node.kind == nodeKindParagraph && len(spaces) > 0 {
+			node.raw.WriteByte(' ')
+		}
 		node.raw.WriteString(line)
 		node.raw.WriteByte('\n')
 	}
@@ -815,13 +819,13 @@ func (doc *Document) terminateCurrentNode() {
 	}
 }
 
-func (doc *Document) line() (line string, c rune) {
+func (doc *Document) line() (spaces, line string, c rune) {
 	doc.prevKind = doc.kind
 	doc.lineNum++
 	line, c = doc.p.Line()
-	line = doc.whatKindOfLine(line)
+	spaces, line = doc.whatKindOfLine(line)
 	fmt.Printf("line %3d: kind %3d: %s\n", doc.lineNum, doc.kind, line)
-	return line, c
+	return spaces, line, c
 }
 
 //
@@ -838,7 +842,7 @@ func (doc *Document) line() (line string, c rune) {
 //	              DOC_REVISION LF
 //	              (*DOC_ATTRIBUTE)
 //
-func (doc *Document) parseHeader() (line string, c rune) {
+func (doc *Document) parseHeader() (spaces, line string, c rune) {
 	const (
 		stateTitle int = iota
 		stateAuthor
@@ -847,7 +851,7 @@ func (doc *Document) parseHeader() (line string, c rune) {
 	)
 	state := stateTitle
 	for {
-		line, c = doc.line()
+		spaces, line, c = doc.line()
 		if len(line) == 0 && c == 0 {
 			break
 		}
@@ -856,7 +860,7 @@ func (doc *Document) parseHeader() (line string, c rune) {
 			if state == stateTitle {
 				continue
 			}
-			return line, c
+			return spaces, line, c
 		}
 
 		if strings.HasPrefix(line, "////") {
@@ -871,7 +875,7 @@ func (doc *Document) parseHeader() (line string, c rune) {
 				continue
 			}
 			if state != stateTitle {
-				return line, c
+				return spaces, line, c
 			}
 			// The line will be assumed either as author or
 			// revision.
@@ -879,7 +883,7 @@ func (doc *Document) parseHeader() (line string, c rune) {
 		switch state {
 		case stateTitle:
 			if !isTitle(line) {
-				return line, c
+				return spaces, line, c
 			}
 			doc.header = &adocNode{
 				kind: nodeKindDocHeader,
@@ -892,14 +896,14 @@ func (doc *Document) parseHeader() (line string, c rune) {
 			state = stateRevision
 		case stateRevision:
 			if !doc.parseHeaderRevision(line) {
-				return line, c
+				return spaces, line, c
 			}
 			state = stateEnd
 		case stateEnd:
-			return line, c
+			return spaces, line, c
 		}
 	}
-	return "", 0
+	return spaces, "", 0
 }
 
 //
@@ -1030,37 +1034,37 @@ func isTitle(line string) bool {
 // It will set kind to lineKindText as default if the line does not match with
 // known syntax.
 //
-func (doc *Document) whatKindOfLine(line string) string {
+func (doc *Document) whatKindOfLine(line string) (spaces, got string) {
 	doc.kind = lineKindText
 	if len(line) == 0 {
 		doc.kind = lineKindEmpty
-		return line
+		return spaces, line
 	}
 	if strings.HasPrefix(line, "////") {
 		// Check for comment block first, since we use HasPrefix to
 		// check for single line comment.
 		doc.kind = lineKindBlockComment
-		return line
+		return spaces, line
 	}
 	if strings.HasPrefix(line, "//") {
 		// Use HasPrefix to allow single line comment without space,
 		// for example "//comment".
 		doc.kind = lineKindComment
-		return line
+		return spaces, line
 	}
 	if line == "'''" || line == "---" || line == "- - -" ||
 		line == "***" || line == "* * *" {
 		doc.kind = lineKindHorizontalRule
-		return line
+		return spaces, line
 	}
 	if line == "<<<" {
 		doc.kind = lineKindPageBreak
-		return line
+		return spaces, line
 	}
 	if strings.HasPrefix(line, "image::") {
 		doc.kind = nodeKindBlockImage
 		line = strings.TrimRight(line[7:], " \t")
-		return line
+		return spaces, line
 	}
 
 	var (
@@ -1076,6 +1080,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 		break
 	}
 	if hasSpace {
+		spaces = line[:x]
 		line = line[x:]
 
 		// A line idented with space only allowed on list item,
@@ -1083,12 +1088,12 @@ func (doc *Document) whatKindOfLine(line string) string {
 
 		if isLineDescriptionItem(line) {
 			doc.kind = nodeKindListDescriptionItem
-			return line
+			return spaces, line
 		}
 
 		if line[0] != '*' && line[0] != '.' {
 			doc.kind = nodeKindLiteralParagraph
-			return line
+			return spaces, line
 		}
 	}
 
@@ -1102,7 +1107,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 			} else {
 				doc.kind = lineKindStyle
 			}
-			return line
+			return spaces, line
 		}
 	} else if line[0] == '=' {
 		subs := strings.Fields(line)
@@ -1133,7 +1138,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 				}
 				if line[x] == ' ' || line[x] == '\t' {
 					doc.kind = nodeKindListOrderedItem
-					return line
+					return spaces, line
 				}
 			}
 		}
@@ -1150,7 +1155,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 				}
 				if line[x] == ' ' || line[x] == '\t' {
 					doc.kind = nodeKindListUnorderedItem
-					return line
+					return spaces, line
 				}
 			}
 		}
@@ -1161,7 +1166,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 	} else if isLineDescriptionItem(line) {
 		doc.kind = nodeKindListDescriptionItem
 	}
-	return line
+	return spaces, line
 }
 
 func isLineDescriptionItem(line string) bool {
