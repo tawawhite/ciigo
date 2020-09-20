@@ -42,6 +42,7 @@ const (
 	lineKindBlockComment              // 25: Block start and end with "////"
 	lineKindComment                   // Line start with "//"
 	lineKindAttribute                 // Line start with ":"
+	lineKindHorizontalRule            // "'''", "---", "- - -", "***", "* * *"
 	lineKindListContinue              // A single "+" line
 	lineKindStyle                     // Line start with "["
 	lineKindText                      //
@@ -203,6 +204,8 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_ITEM", node)
 	case nodeKindListDescriptionItem:
 		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_DESCRIPTION_ITEM", node)
+	case lineKindHorizontalRule:
+		err = tmpl.ExecuteTemplate(w, "HORIZONTAL_RULE", node)
 	}
 	if err != nil {
 		return err

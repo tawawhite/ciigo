@@ -355,3 +355,17 @@ What is Asciidoctor?::
 What is the answer to the Ultimate Question?:: 42
 
 A new paragraph.
+
+
+==  Horizontal rules
+
+'''
+---
+- - -
+***
+* * *
+
+With leading spaces,
+
+ '''
+	---

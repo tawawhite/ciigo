@@ -109,6 +109,14 @@ func (doc *Document) Parse(content []byte) (err error) {
 		case lineKindComment:
 			line = ""
 			continue
+		case lineKindHorizontalRule:
+			if doc.nodeCurrent.kind != nodeKindUnknown {
+				doc.terminateCurrentNode()
+			}
+			doc.nodeCurrent.kind = doc.kind
+			doc.terminateCurrentNode()
+			line = ""
+			continue
 		case lineKindAttribute:
 			if doc.parseAttribute(line, true) {
 				doc.terminateCurrentNode()
@@ -1017,6 +1025,11 @@ func (doc *Document) whatKindOfLine(line string) string {
 		// Use HasPrefix to allow single line comment without space,
 		// for example "//comment".
 		doc.kind = lineKindComment
+		return line
+	}
+	if line == "'''" || line == "---" || line == "- - -" ||
+		line == "***" || line == "* * *" {
+		doc.kind = lineKindHorizontalRule
 		return line
 	}
 
