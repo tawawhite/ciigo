@@ -360,6 +360,8 @@ A new paragraph.
 ==  Horizontal rules
 
 '''
+
+A paragraph followed by horizontal rule,
 ---
 - - -
 ***
@@ -369,3 +371,26 @@ With leading spaces,
 
  '''
 	---
+
+== Page break
+
+Before page break.
+
+<<<
+
+After page break.
+
+
+== Block images
+
+image::sunset.jpg[]
+
+image::sunset.jpg[
+This is become paragraph.
+
+image::sunset.jpg]
+
+image::sunset.jpg[1,abc,def]
+image::sunset.jpg[1,abc,def,ghi]
+
+image::notexist.jpg[]

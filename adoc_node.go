@@ -35,15 +35,15 @@ const (
 	nodeKindListUnorderedItem         // Line start with "* "
 	nodeKindListDescription           // Wrapper.
 	nodeKindListDescriptionItem       // 20: Line that has "::" + WSP
-	nodeKindFigure                    //
-	nodeKindImage                     //
+	nodeKindBlockImage                // "image::"
 	lineKindEmpty                     //
 	lineKindBlockTitle                // Line start with ".<alnum>"
-	lineKindBlockComment              // 25: Block start and end with "////"
-	lineKindComment                   // Line start with "//"
+	lineKindBlockComment              // Block start and end with "////"
+	lineKindComment                   // 25: Line start with "//"
 	lineKindAttribute                 // Line start with ":"
 	lineKindHorizontalRule            // "'''", "---", "- - -", "***", "* * *"
 	lineKindListContinue              // A single "+" line
+	lineKindPageBreak                 // "<<<"
 	lineKindStyle                     // Line start with "["
 	lineKindText                      //
 )
@@ -58,6 +58,9 @@ type adocNode struct {
 	rawTerm  bytes.Buffer
 	rawTitle string
 	style    int64
+	Alt      string
+	Width    string
+	Height   string
 
 	parent *adocNode
 	child  *adocNode
@@ -144,6 +147,37 @@ func (node *adocNode) parseListDescription(line string) {
 	}
 }
 
+func (node *adocNode) parseImage(line string) bool {
+	attrBegin := strings.IndexByte(line, '[')
+	if attrBegin < 0 {
+		return false
+	}
+	attrEnd := strings.IndexByte(line, ']')
+	if attrEnd < 0 {
+		return false
+	}
+	name := strings.TrimRight(line[:attrBegin], " \t")
+	node.raw.WriteString(name)
+
+	attrs := strings.Split(line[attrBegin+1:attrEnd], ",")
+	if len(attrs) >= 1 {
+		node.Alt = strings.TrimSpace(attrs[0])
+		if len(node.Alt) == 0 {
+			dot := strings.IndexByte(name, '.')
+			if dot > 0 {
+				node.Alt = name[:dot]
+			}
+		}
+	}
+	if len(attrs) >= 2 {
+		node.Width = attrs[1]
+	}
+	if len(attrs) >= 3 {
+		node.Height = attrs[2]
+	}
+	return true
+}
+
 func (node *adocNode) addChild(child *adocNode) {
 	child.parent = node
 	child.next = nil
@@ -205,7 +239,11 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 	case nodeKindListDescriptionItem:
 		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_DESCRIPTION_ITEM", node)
 	case lineKindHorizontalRule:
-		err = tmpl.ExecuteTemplate(w, "HORIZONTAL_RULE", node)
+		err = tmpl.ExecuteTemplate(w, "HORIZONTAL_RULE", nil)
+	case lineKindPageBreak:
+		err = tmpl.ExecuteTemplate(w, "PAGE_BREAK", nil)
+	case nodeKindBlockImage:
+		err = tmpl.ExecuteTemplate(w, "BLOCK_IMAGE", node)
 	}
 	if err != nil {
 		return err

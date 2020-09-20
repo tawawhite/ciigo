@@ -117,6 +117,14 @@ func (doc *Document) Parse(content []byte) (err error) {
 			doc.terminateCurrentNode()
 			line = ""
 			continue
+		case lineKindPageBreak:
+			if doc.nodeCurrent.kind != nodeKindUnknown {
+				doc.terminateCurrentNode()
+			}
+			doc.nodeCurrent.kind = doc.kind
+			doc.terminateCurrentNode()
+			line = ""
+			continue
 		case lineKindAttribute:
 			if doc.parseAttribute(line, true) {
 				doc.terminateCurrentNode()
@@ -238,6 +246,19 @@ func (doc *Document) Parse(content []byte) (err error) {
 			line, c = doc.parseListDescription(doc.nodeParent, line)
 			doc.terminateCurrentNode()
 			continue
+
+		case nodeKindBlockImage:
+			if doc.nodeCurrent.kind != nodeKindUnknown {
+				doc.terminateCurrentNode()
+			}
+			if doc.nodeCurrent.parseImage(line) {
+				doc.nodeCurrent.kind = doc.kind
+				doc.terminateCurrentNode()
+			} else {
+				doc.nodeCurrent.kind = nodeKindParagraph
+				doc.nodeCurrent.raw.WriteString("image::" + line)
+				doc.nodeCurrent.raw.WriteByte('\n')
+			}
 		}
 		line = ""
 	}
@@ -1030,6 +1051,15 @@ func (doc *Document) whatKindOfLine(line string) string {
 	if line == "'''" || line == "---" || line == "- - -" ||
 		line == "***" || line == "* * *" {
 		doc.kind = lineKindHorizontalRule
+		return line
+	}
+	if line == "<<<" {
+		doc.kind = lineKindPageBreak
+		return line
+	}
+	if strings.HasPrefix(line, "image::") {
+		doc.kind = nodeKindBlockImage
+		line = strings.TrimRight(line[7:], " \t")
 		return line
 	}
 

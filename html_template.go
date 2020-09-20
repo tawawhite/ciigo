@@ -230,6 +230,19 @@ Last updated {{.LastUpdated}}
 <hr>
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
+{{- define "PAGE_BREAK"}}
+<div style="page-break-after: always;"></div>
+{{- end}}
+{{/*----------------------------------------------------------------------*/}}
+{{- define "BLOCK_IMAGE"}}
+<div class="imageblock">
+<div class="content">
+<img src="{{.Content}}" alt="{{.Alt}}"
+	{{- if .Width}} width="{{.Width}}"{{end}}
+	{{- if .Height}} height="{{.Height}}"{{end}}>
+</div>
+</div>
+{{- end}}
 {{/*----------------------------------------------------------------------*/}}
 `)
 	return tmpl, err
