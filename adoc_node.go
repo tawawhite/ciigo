@@ -7,6 +7,7 @@ package ciigo
 import (
 	"bytes"
 	"fmt"
+	"html/template"
 	"io"
 	"strings"
 	"unicode"
@@ -172,124 +173,43 @@ func (node *adocNode) debug(n int) {
 	}
 }
 
-func (node *adocNode) toHTML(w io.Writer) (err error) {
+func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 	switch node.kind {
 	case nodeKindPreamble:
-		_, err = fmt.Fprintf(w, `<div id="preamble">
-<div class="sectionbody">
-`)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_PREAMBLE", nil)
 	case nodeKindSectionL1:
-		title := strings.TrimSpace(node.raw.String())
-		_, err = fmt.Fprintf(w, `<div class="sect1">
-<h2 id="%s">%s</h2>
-<div class="sectionbody">
-`, toID(title), title)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_SECTION_L1", node)
 	case nodeKindSectionL2:
-		title := strings.TrimSpace(node.raw.String())
-		_, err = fmt.Fprintf(w, `<div class="sect2">
-<h3 id="%s">%s</h3>
-`, toID(title), title)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_SECTION_L2", node)
 	case nodeKindSectionL3:
-		title := strings.TrimSpace(node.raw.String())
-		_, err = fmt.Fprintf(w, `<div class="sect3">
-<h4 id="%s">%s</h4>
-<div class="sectionbody">
-`, toID(title), title)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_SECTION_L3", node)
 	case nodeKindSectionL4:
-		title := strings.TrimSpace(node.raw.String())
-		_, err = fmt.Fprintf(w, `<div class="sect4">
-<h5 id="%s">%s</h5>
-<div class="sectionbody">
-`, toID(title), title)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_SECTION_L4", node)
 	case nodeKindSectionL5:
-		title := strings.TrimSpace(node.raw.String())
-		_, err = fmt.Fprintf(w, `<div class="sect5">
-<h6 id="%s">%s</h6>
-<div class="sectionbody">
-`, toID(title), title)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_SECTION_L5", node)
 	case nodeKindParagraph:
-		_, err = fmt.Fprintf(w, `<div class="paragraph">
-`)
-		err = node.toHTMLBlockTitle(w)
-		_, err = fmt.Fprintf(w, `<p>%s</p>
-</div>
-`, strings.TrimSpace(node.raw.String()))
-
-	case nodeKindLiteralParagraph, nodeKindBlockLiteralNamed,
-		nodeKindBlockLiteralDelimiter:
-		_, err = fmt.Fprintf(w, `<div class="literalblock">
-<div class="content">
-<pre>%s</pre>
-</div>
-</div>
-`, strings.TrimRight(node.raw.String(), " \t\r\n"))
-
+		err = tmpl.ExecuteTemplate(w, "PARAGRAPH", node)
+	case nodeKindLiteralParagraph, nodeKindBlockLiteralNamed, nodeKindBlockLiteralDelimiter:
+		err = tmpl.ExecuteTemplate(w, "BLOCK_LITERAL", node)
 	case nodeKindBlockListingDelimiter:
-		_, err = fmt.Fprintf(w, `<div class="listingblock">
-<div class="content">
-<pre>%s</pre>
-</div>
-</div>
-`, strings.TrimSpace(node.raw.String()))
-
+		err = tmpl.ExecuteTemplate(w, "BLOCK_LISTING", node)
 	case nodeKindListOrdered:
-		class, tipe := getListOrderedClassType(node.level)
-
-		_, err = fmt.Fprintf(w, `<div class="olist %s">
-`, class)
-		if err != nil {
-			return err
-		}
-		err = node.toHTMLBlockTitle(w)
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(w, `<ol class="%s"`, class)
-		if err != nil {
-			return err
-		}
-		if len(tipe) > 0 {
-			_, err = fmt.Fprintf(w, ` type="%s"`, tipe)
-		}
-		_, err = fmt.Fprintf(w, `>
-`)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_ORDERED", node)
 	case nodeKindListUnordered:
-		_, err = fmt.Fprintf(w, `<div class="ulist">
-`)
-		err = node.toHTMLBlockTitle(w)
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(w, `<ul>
-`)
-		if err != nil {
-			return err
-		}
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_UNORDERED", node)
 	case nodeKindListDescription:
-		err = node.htmlBeginListDescription(w)
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_DESCRIPTION", node)
 	case nodeKindListOrderedItem, nodeKindListUnorderedItem:
-		_, err = fmt.Fprintf(w, `<li>
-<p>%s</p>
-`, strings.TrimSpace(node.raw.String()))
-
+		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_ITEM", node)
 	case nodeKindListDescriptionItem:
-		err = node.htmlBeginListDescriptionItem(w)
+		err = tmpl.ExecuteTemplate(w, "BEGIN_LIST_DESCRIPTION_ITEM", node)
 	}
 	if err != nil {
 		return err
 	}
 
 	if node.child != nil {
-		err = node.child.toHTML(w)
+		err = node.child.toHTML(tmpl, w)
 		if err != nil {
 			return err
 		}
@@ -297,40 +217,28 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 
 	switch node.kind {
 	case nodeKindPreamble:
-		_, err = fmt.Fprintf(w, `</div>
-</div>
-`)
-
+		err = tmpl.ExecuteTemplate(w, "END_PREAMBLE", nil)
 	case nodeKindSectionL1:
-		_, err = fmt.Fprintf(w, `</div>
-</div>
-`)
-	case nodeKindSectionL2, nodeKindSectionL3,
-		nodeKindSectionL4, nodeKindSectionL5:
-		_, err = fmt.Fprintf(w, `</div>
-`)
+		err = tmpl.ExecuteTemplate(w, "END_SECTION_L1", nil)
+	case nodeKindSectionL2, nodeKindSectionL3, nodeKindSectionL4, nodeKindSectionL5:
+		err = tmpl.ExecuteTemplate(w, "END_SECTION", nil)
 	case nodeKindListOrderedItem, nodeKindListUnorderedItem:
-		_, err = fmt.Fprintf(w, `</li>
-`)
+		err = tmpl.ExecuteTemplate(w, "END_LIST_ITEM", nil)
 	case nodeKindListDescriptionItem:
-		err = node.htmlEndListDescriptionItem(w)
+		err = tmpl.ExecuteTemplate(w, "END_LIST_DESCRIPTION_ITEM", node)
 	case nodeKindListOrdered:
-		_, err = fmt.Fprintf(w, `</ol>
-</div>
-`)
+		err = tmpl.ExecuteTemplate(w, "END_LIST_ORDERED", nil)
 	case nodeKindListUnordered:
-		_, err = fmt.Fprintf(w, `</ul>
-</div>
-`)
+		err = tmpl.ExecuteTemplate(w, "END_LIST_UNORDERED", nil)
 	case nodeKindListDescription:
-		err = node.htmlEndListDescription(w)
+		err = tmpl.ExecuteTemplate(w, "END_LIST_DESCRIPTION", node)
 	}
 	if err != nil {
 		return err
 	}
 
 	if node.next != nil {
-		err = node.next.toHTML(w)
+		err = node.next.toHTML(tmpl, w)
 		if err != nil {
 			return err
 		}
@@ -339,105 +247,35 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 	return nil
 }
 
-func (node *adocNode) toHTMLBlockTitle(w io.Writer) (err error) {
-	if len(node.rawTitle) > 0 {
-		_, err = fmt.Fprintf(w, `<div class="title">%s</div>
-`, node.rawTitle)
-	}
-	return err
-}
-
-func (node *adocNode) htmlBeginListDescription(w io.Writer) (err error) {
-	if node.style&styleDescriptionHorizontal > 0 {
-		_, err = fmt.Fprintf(w, `<div class="hdlist">
-`)
-
-		err = node.toHTMLBlockTitle(w)
-		if err != nil {
-			return err
-		}
-
-		_, err = fmt.Fprintf(w, "<table>\n")
-	} else {
-		_, err = fmt.Fprintf(w, `<div class="dlist">
-`)
-
-		err = node.toHTMLBlockTitle(w)
-		if err != nil {
-			return err
-		}
-
-		_, err = fmt.Fprintf(w, "<dl>\n")
-	}
-	return err
-}
-
-func (node *adocNode) htmlEndListDescription(w io.Writer) (err error) {
-	if node.style&styleDescriptionHorizontal > 0 {
-		_, err = fmt.Fprintf(w, "</table>\n</div>\n")
-	} else {
-		_, err = fmt.Fprintf(w, "</dl>\n</div>\n")
-	}
-	return err
-}
-
-func (node *adocNode) htmlBeginListDescriptionItem(w io.Writer) (err error) {
-	if node.style&styleDescriptionHorizontal > 0 {
-		_, err = fmt.Fprintf(w, `<tr>
-<td class="hdlist1">
-%s
-</td>
-<td class="hdlist2">
-`, node.rawTerm.String())
-		if err != nil {
-			return err
-		}
-		if node.raw.Len() > 0 {
-			_, err = fmt.Fprintf(w, `<p>%s</p>
-`, node.raw.String())
-		}
-	} else {
-		_, err = fmt.Fprintf(w, `<dt class="hdlist1">%s</dt>
-<dd>
-`, node.rawTerm.String())
-		if err != nil {
-			return err
-		}
-		if node.raw.Len() > 0 {
-			_, err = fmt.Fprintf(w, `<p>%s</p>
-`, strings.TrimSpace(node.raw.String()))
-		}
-	}
-	return err
-}
-
-func (node *adocNode) htmlEndListDescriptionItem(w io.Writer) (err error) {
-	if node.style&styleDescriptionHorizontal > 0 {
-		_, err = fmt.Fprintf(w, `</td>
-</tr>
-`)
-	} else {
-		_, err = fmt.Fprintf(w, `</dd>
-`)
-	}
-	return err
-}
-
-func getListOrderedClassType(level int) (class, tipe string) {
-	switch level {
+func (node *adocNode) GetListOrderedClass() string {
+	switch node.level {
 	case 2:
-		return "loweralpha", "a"
+		return "loweralpha"
 	case 3:
-		return "lowerroman", "i"
+		return "lowerroman"
 	case 4:
-		return "upperalpha", "A"
+		return "upperalpha"
 	case 5:
-		return "upperroman", "I"
+		return "upperroman"
 	}
-	return "arabic", ""
+	return "arabic"
 }
 
-func toID(str string) string {
+func (node *adocNode) GetListOrderedType() string {
+	switch node.level {
+	case 2:
+		return "a"
+	case 3:
+		return "i"
+	case 4:
+		return "A"
+	case 5:
+		return "I"
+	}
+	return ""
+}
+
+func (node *adocNode) GenerateID(str string) string {
 	id := make([]rune, 0, len(str)+1)
 	id = append(id, '_')
 	for _, c := range strings.ToLower(str) {
@@ -450,4 +288,20 @@ func toID(str string) string {
 		}
 	}
 	return strings.TrimRight(string(id), "_")
+}
+
+func (node *adocNode) Content() string {
+	return strings.TrimSpace(node.raw.String())
+}
+
+func (node *adocNode) IsStyleHorizontal() bool {
+	return node.style&styleDescriptionHorizontal > 0
+}
+
+func (node *adocNode) Terminology() string {
+	return node.rawTerm.String()
+}
+
+func (node *adocNode) Title() string {
+	return node.rawTitle
 }

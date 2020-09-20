@@ -23,13 +23,14 @@ type Document struct {
 	file string
 	p    *parser.Parser
 
-	authors     string
-	revnumber   string
-	revdate     string
-	lastUpdated time.Time
-	attributes  map[string]string
-	title       string
-	lineNum     int
+	Author       string
+	Title        string
+	RevNumber    string
+	RevSeparator string
+	RevDate      string
+	LastUpdated  string
+	attributes   map[string]string
+	lineNum      int
 
 	header  *adocNode
 	content *adocNode
@@ -56,7 +57,7 @@ func Open(file string) (doc *Document, err error) {
 
 	doc = &Document{
 		file:        file,
-		lastUpdated: fi.ModTime().Round(time.Second),
+		LastUpdated: fi.ModTime().Round(time.Second).Format("2006-01-02 15:04:05 Z0700"),
 		attributes:  make(map[string]string),
 		content: &adocNode{
 			kind: nodeKindDocContent,
@@ -855,10 +856,10 @@ func (doc *Document) parseHeader() (line string, c rune) {
 				kind: nodeKindDocHeader,
 			}
 			doc.header.raw.WriteString(strings.TrimSpace(line[2:]))
-			doc.title = doc.header.raw.String()
+			doc.Title = doc.header.raw.String()
 			state = stateAuthor
 		case stateAuthor:
-			doc.authors = line
+			doc.Author = line
 			state = stateRevision
 		case stateRevision:
 			if !doc.parseHeaderRevision(line) {
@@ -928,10 +929,11 @@ func (doc *Document) parseHeaderRevision(line string) bool {
 
 	idx := strings.IndexByte(line, ',')
 	if idx > 0 {
-		doc.revnumber = line[1:idx]
-		doc.revdate = strings.TrimSpace(line[idx+1:])
+		doc.RevNumber = line[1:idx]
+		doc.RevDate = strings.TrimSpace(line[idx+1:])
+		doc.RevSeparator = ","
 	} else {
-		doc.revnumber = line[1:]
+		doc.RevNumber = line[1:]
 	}
 	return true
 }
@@ -952,97 +954,36 @@ func (doc *Document) parseIgnoreCommentBlock() {
 // ToHTML convert the asciidoc to HTML.
 //
 func (doc *Document) ToHTML(w io.Writer) (err error) {
-	err = doc.htmlBegin(w)
+	tmpl, err := newHTMLTemplate()
 	if err != nil {
 		return err
 	}
 
-	if doc.header != nil {
-		var sep string
-		if len(doc.revnumber) > 0 && len(doc.revdate) > 0 {
-			sep = ","
-		}
-		_, err = fmt.Fprintf(w, `<div id="header">
-<h1>%s</h1>
-<div class="details">
-<span id="author" class="author">%s</span><br>
-`, doc.header.raw.String(), doc.authors)
-		if err != nil {
-			return err
-		}
-
-		if len(doc.revnumber) > 0 {
-			_, err = fmt.Fprintf(w, `<span id="revnumber">version %s%s</span>
-`, doc.revnumber, sep)
-			if err != nil {
-				return err
-			}
-		}
-		if len(doc.revdate) > 0 {
-			_, err = fmt.Fprintf(w, `<span id="revdate">%s</span>
-`, doc.revdate)
-			if err != nil {
-				return err
-			}
-		}
-
-		_, err = fmt.Fprintf(w, `</div>
-</div>
-`)
-		if err != nil {
-			return err
-		}
+	err = tmpl.ExecuteTemplate(w, "BEGIN", doc)
+	if err != nil {
+		return err
 	}
 
-	_, err = fmt.Fprintf(w, `<div id="content">
-`)
+	err = tmpl.ExecuteTemplate(w, "BEGIN_HEADER", doc)
 	if err != nil {
 		return err
 	}
 
 	if doc.content.child != nil {
-		err = doc.content.child.toHTML(w)
+		err = doc.content.child.toHTML(tmpl, w)
 		if err != nil {
 			return err
 		}
 	}
 	if doc.content.next != nil {
-		err = doc.content.next.toHTML(w)
+		err = doc.content.next.toHTML(tmpl, w)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = fmt.Fprintf(w, `</div>
-<div id="footer">
-<div id="footer-text">
-Version %s<br>
-Last updated %s
-</div>
-</div>
-</body>
-</html>
-`, doc.revnumber, doc.lastUpdated.Format("2006-01-02 15:04:05 Z0700"))
+	err = tmpl.ExecuteTemplate(w, "END", doc)
 
-	return err
-}
-
-func (doc *Document) htmlBegin(w io.Writer) (err error) {
-	_, err = fmt.Fprintf(w, `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="ciigo">
-<meta name="author" content="%s">
-<title>%s</title>
-<style>
-
-</style>
-</head>
-<body class="article">
-`, doc.authors, doc.title)
 	return err
 }
 

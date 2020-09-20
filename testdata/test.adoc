@@ -56,7 +56,7 @@ A paragraph followed by comment.
 // comment.
 This is next line in paragraph.
 
-A paragraph followed by by "+",
+A paragraph followed by "+",
 +
 This is next line in paragraph.
 
