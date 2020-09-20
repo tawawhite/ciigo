@@ -272,15 +272,33 @@ This line separated by comment.
 
 CPU:: The brain of the computer.
 Hard drive:: Permanent storage for operating system and/or user files.
-RAM:: Temporarily stores information the CPU uses during operation.
-Keyboard:: Used to enter text or control items on the screen.
-Mouse:: Used to point to and select items on your computer screen.
-Monitor:: Displays information in visual form using text and graphics.
+
+===  With [horizontal]
 
 [horizontal]
 CPU:: The brain of the computer.
 Hard drive:: Permanent storage for operating system and/or user files.
-RAM:: Temporarily stores information the CPU uses during operation.
+
+=== With title
+
+.A title
+CPU:: The brain of the computer.
+Hard drive:: Permanent storage for operating system and/or user files.
+
+=== Indented with space
+
+  CPU:: The brain of the computer.
+  Hard drive:: Permanent storage for operating system and/or user files.
+
+=== With "+"
+
+CPU::
++
+The brain of the computer.
+Hard drive::
+Permanent storage for operating system and/or
++
+user files.
 
 === Mixed with list 
 
@@ -305,7 +323,7 @@ Bakery::
 
 Produce::
 
-  * Bananas
+* Bananas
 
 ===  Mixed with ordered and unordered list
 

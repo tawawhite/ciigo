@@ -116,6 +116,13 @@ func (doc *Document) Parse(content []byte) (err error) {
 			}
 			line = ""
 			continue
+		case lineKindStyle:
+			style := doc.parseStyle(line)
+			if style != styleNone {
+				doc.nodeCurrent.style |= style
+				line = ""
+				continue
+			}
 
 		case lineKindText, lineKindListContinue:
 			if doc.nodeCurrent.kind == nodeKindUnknown {
@@ -215,6 +222,11 @@ func (doc *Document) Parse(content []byte) (err error) {
 
 		case nodeKindListUnorderedItem:
 			line, c = doc.parseListUnordered(doc.nodeParent, line)
+			doc.terminateCurrentNode()
+			continue
+
+		case nodeKindListDescriptionItem:
+			line, c = doc.parseListDescription(doc.nodeParent, line)
 			doc.terminateCurrentNode()
 			continue
 		}
@@ -322,6 +334,23 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 			}
 
 			line, c = doc.parseListUnordered(listItem, line)
+			continue
+		}
+		if doc.kind == nodeKindListDescriptionItem {
+			node := &adocNode{
+				kind: doc.kind,
+			}
+			node.parseListDescription(line)
+
+			parentListItem := parent
+			for parentListItem != nil {
+				if parentListItem.kind == doc.kind && parentListItem.level == node.level {
+					return line, c
+				}
+				parentListItem = parentListItem.parent
+			}
+
+			line, c = doc.parseListDescription(listItem, line)
 			continue
 		}
 
@@ -462,6 +491,23 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 			line, c = doc.parseListUnordered(listItem, line)
 			continue
 		}
+		if doc.kind == nodeKindListDescriptionItem {
+			node := &adocNode{
+				kind: doc.kind,
+			}
+			node.parseListDescription(line)
+
+			parentListItem := parent
+			for parentListItem != nil {
+				if parentListItem.kind == doc.kind && parentListItem.level == node.level {
+					return line, c
+				}
+				parentListItem = parentListItem.parent
+			}
+
+			line, c = doc.parseListDescription(listItem, line)
+			continue
+		}
 
 		if doc.kind == lineKindText {
 			if doc.prevKind == lineKindEmpty {
@@ -502,6 +548,125 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 		line = ""
 	}
 
+	return line, c
+}
+
+func (doc *Document) parseListDescription(parent *adocNode, line string) (
+	got string, c rune,
+) {
+	list := &adocNode{
+		kind:     nodeKindListDescription,
+		rawTitle: doc.nodeCurrent.rawTitle,
+		style:    doc.nodeCurrent.style,
+	}
+	listItem := &adocNode{
+		kind:  nodeKindListDescriptionItem,
+		style: list.style,
+	}
+	listItem.parseListDescription(line)
+	list.level = listItem.level
+	list.addChild(listItem)
+	parent.addChild(list)
+	line = ""
+
+	for {
+		if len(line) == 0 {
+			line, c = doc.line()
+			if len(line) == 0 && c == 0 {
+				break
+			}
+		}
+		if doc.kind == lineKindBlockComment {
+			doc.parseIgnoreCommentBlock()
+			line = ""
+			continue
+		}
+		if doc.kind == lineKindComment {
+			line = ""
+			continue
+		}
+		if doc.kind == lineKindListContinue {
+			var node *adocNode
+			node, line, c = doc.parseListBlock()
+			if node != nil {
+				listItem.addChild(node)
+			}
+			continue
+		}
+		if doc.kind == lineKindEmpty {
+			// Keep going, maybe next line is still a list.
+			continue
+		}
+		if doc.kind == nodeKindListOrderedItem {
+			line, c = doc.parseListOrdered(listItem, line)
+			continue
+		}
+		if doc.kind == nodeKindListUnorderedItem {
+			line, c = doc.parseListUnordered(listItem, line)
+			continue
+		}
+		if doc.kind == nodeKindListDescriptionItem {
+			node := &adocNode{
+				kind:  nodeKindListDescriptionItem,
+				style: list.style,
+			}
+			node.parseListDescription(line)
+			if listItem.level == node.level {
+				list.addChild(node)
+				listItem = node
+				line = ""
+				continue
+			}
+			parentListItem := parent
+			for parentListItem != nil {
+				if parentListItem.kind == doc.kind && parentListItem.level == node.level {
+					return line, c
+				}
+				parentListItem = parentListItem.parent
+			}
+
+			line, c = doc.parseListDescription(listItem, line)
+			continue
+		}
+
+		if doc.kind == lineKindText {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
+		if doc.kind == nodeKindBlockLiteralNamed {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+			node := &adocNode{
+				kind: doc.kind,
+			}
+			line, c = doc.consumeLinesUntil(node,
+				lineKindEmpty,
+				[]int{
+					nodeKindListOrderedItem,
+					nodeKindListUnorderedItem,
+				})
+			listItem.addChild(node)
+			continue
+		}
+		if doc.kind == nodeKindBlockListingDelimiter {
+			break
+		}
+		if doc.kind == nodeKindSectionL1 ||
+			doc.kind == nodeKindSectionL2 ||
+			doc.kind == nodeKindSectionL3 ||
+			doc.kind == nodeKindSectionL4 ||
+			doc.kind == nodeKindSectionL5 {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
+
+		listItem.raw.WriteString(strings.TrimSpace(line))
+		listItem.raw.WriteByte('\n')
+		line = ""
+	}
 	return line, c
 }
 
@@ -557,6 +722,7 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 					lineKindListContinue,
 					nodeKindListOrderedItem,
 					nodeKindListUnorderedItem,
+					nodeKindListDescriptionItem,
 				})
 			break
 		}
@@ -572,6 +738,9 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 			break
 		}
 		if doc.kind == nodeKindListUnorderedItem {
+			break
+		}
+		if doc.kind == nodeKindListDescriptionItem {
 			break
 		}
 	}
@@ -924,18 +1093,34 @@ func (doc *Document) whatKindOfLine(line string) string {
 	}
 	if hasSpace {
 		line = line[x:]
+
 		// A line idented with space only allowed on list item,
 		// otherwise it would be set as literal paragraph.
+
+		if lineIsDescriptionItem(line) {
+			doc.kind = nodeKindListDescriptionItem
+			return line
+		}
+
 		if line[0] != '*' && line[0] != '.' {
 			doc.kind = nodeKindLiteralParagraph
 			return line
 		}
 	}
+
 	if line[0] == ':' {
 		doc.kind = lineKindAttribute
-		return line
-	}
-	if line[0] == '=' {
+	} else if line[0] == '[' {
+		newline := strings.TrimRight(line, " \t")
+		if newline[len(newline)-1] == ']' {
+			if line == "[literal]" {
+				doc.kind = nodeKindBlockLiteralNamed
+			} else {
+				doc.kind = lineKindStyle
+			}
+			return line
+		}
+	} else if line[0] == '=' {
 		subs := strings.Fields(line)
 		switch subs[0] {
 		case "==":
@@ -949,9 +1134,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 		case "======":
 			doc.kind = nodeKindSectionL5
 		}
-		return line
-	}
-	if line[0] == '.' {
+	} else if line[0] == '.' {
 		if len(line) <= 1 {
 			doc.kind = lineKindText
 		} else if line == "...." {
@@ -970,9 +1153,7 @@ func (doc *Document) whatKindOfLine(line string) string {
 				}
 			}
 		}
-		return line
-	}
-	if line[0] == '*' {
+	} else if line[0] == '*' {
 		if len(line) <= 1 {
 			doc.kind = lineKindText
 		} else if line == "****" {
@@ -989,14 +1170,28 @@ func (doc *Document) whatKindOfLine(line string) string {
 				}
 			}
 		}
-		return line
-	}
-	if line == "+" {
+	} else if line == "+" {
 		doc.kind = lineKindListContinue
-	} else if line == "[literal]" {
-		doc.kind = nodeKindBlockLiteralNamed
 	} else if line == "----" {
 		doc.kind = nodeKindBlockListingDelimiter
+	} else if lineIsDescriptionItem(line) {
+		doc.kind = nodeKindListDescriptionItem
 	}
 	return line
+}
+
+func lineIsDescriptionItem(line string) bool {
+	x := strings.Index(line, ":: ")
+	if x > 0 {
+		return true
+	}
+	x = strings.Index(line, "::\t")
+	if x > 0 {
+		return true
+	}
+	x = strings.Index(line, "::")
+	if x > 0 {
+		return true
+	}
+	return false
 }

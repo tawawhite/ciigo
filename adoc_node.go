@@ -28,18 +28,21 @@ const (
 	nodeKindBlockLiteralNamed         // Block start with "[literal]", end with ""
 	nodeKindBlockLiteralDelimiter     // Block start and end with "...."
 	nodeKindBlockSidebar              // "****"
-	nodeKindListOrdered               // Wrapper.
-	nodeKindListOrderedItem           // 15: Line start with ". "
+	nodeKindListOrdered               // 15: Wrapper.
+	nodeKindListOrderedItem           // Line start with ". "
 	nodeKindListUnordered             // Wrapper.
 	nodeKindListUnorderedItem         // Line start with "* "
+	nodeKindListDescription           // Wrapper.
+	nodeKindListDescriptionItem       // 20: Line that has "::" + WSP
 	nodeKindFigure                    //
 	nodeKindImage                     //
-	lineKindEmpty                     // 20:
+	lineKindEmpty                     //
 	lineKindBlockTitle                // Line start with ".<alnum>"
-	lineKindBlockComment              // Block start and end with "////"
+	lineKindBlockComment              // 25: Block start and end with "////"
 	lineKindComment                   // Line start with "//"
 	lineKindAttribute                 // Line start with ":"
-	lineKindListContinue              // 25: A single "+" line
+	lineKindListContinue              // A single "+" line
+	lineKindStyle                     // Line start with "["
 	lineKindText                      //
 )
 
@@ -50,7 +53,9 @@ type adocNode struct {
 	kind     int
 	level    int          // The number of dot for ordered list, or star '*' for unordered list.
 	raw      bytes.Buffer // unparsed content of node.
+	rawTerm  bytes.Buffer
 	rawTitle string
+	style    int64
 
 	parent *adocNode
 	child  *adocNode
@@ -100,6 +105,43 @@ func (node *adocNode) parseListUnordered(line string) {
 	node.raw.WriteByte('\n')
 }
 
+func (node *adocNode) parseListDescription(line string) {
+	var (
+		x int
+		c rune
+	)
+	for x, c = range line {
+		if c == ':' {
+			break
+		}
+		node.rawTerm.WriteRune(c)
+	}
+	line = line[x:]
+	for x, c = range line {
+		if c == ':' {
+			node.level++
+			continue
+		}
+		break
+	}
+	// Skip leading spaces...
+	if x < len(line)-1 {
+		line = line[x:]
+	} else {
+		line = ""
+	}
+	for x, c = range line {
+		if c == ' ' || c == '\t' {
+			continue
+		}
+		break
+	}
+	node.level -= 2
+	if len(line) > 0 {
+		node.raw.WriteString(line[x:])
+	}
+}
+
 func (node *adocNode) addChild(child *adocNode) {
 	child.parent = node
 	child.next = nil
@@ -138,34 +180,34 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 `)
 
 	case nodeKindSectionL1:
-		title := node.raw.String()
+		title := strings.TrimSpace(node.raw.String())
 		_, err = fmt.Fprintf(w, `<div class="sect1">
 <h2 id="%s">%s</h2>
 <div class="sectionbody">
 `, toID(title), title)
 
 	case nodeKindSectionL2:
-		title := node.raw.String()
+		title := strings.TrimSpace(node.raw.String())
 		_, err = fmt.Fprintf(w, `<div class="sect2">
 <h3 id="%s">%s</h3>
 `, toID(title), title)
 
 	case nodeKindSectionL3:
-		title := node.raw.String()
+		title := strings.TrimSpace(node.raw.String())
 		_, err = fmt.Fprintf(w, `<div class="sect3">
 <h4 id="%s">%s</h4>
 <div class="sectionbody">
 `, toID(title), title)
 
 	case nodeKindSectionL4:
-		title := node.raw.String()
+		title := strings.TrimSpace(node.raw.String())
 		_, err = fmt.Fprintf(w, `<div class="sect4">
 <h5 id="%s">%s</h5>
 <div class="sectionbody">
 `, toID(title), title)
 
 	case nodeKindSectionL5:
-		title := node.raw.String()
+		title := strings.TrimSpace(node.raw.String())
 		_, err = fmt.Fprintf(w, `<div class="sect5">
 <h6 id="%s">%s</h6>
 <div class="sectionbody">
@@ -179,7 +221,8 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 </div>
 `, strings.TrimSpace(node.raw.String()))
 
-	case nodeKindLiteralParagraph, nodeKindBlockLiteralNamed, nodeKindBlockLiteralDelimiter:
+	case nodeKindLiteralParagraph, nodeKindBlockLiteralNamed,
+		nodeKindBlockLiteralDelimiter:
 		_, err = fmt.Fprintf(w, `<div class="literalblock">
 <div class="content">
 <pre>%s</pre>
@@ -229,11 +272,17 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 		if err != nil {
 			return err
 		}
+
+	case nodeKindListDescription:
+		err = node.htmlBeginListDescription(w)
+
 	case nodeKindListOrderedItem, nodeKindListUnorderedItem:
 		_, err = fmt.Fprintf(w, `<li>
 <p>%s</p>
 `, strings.TrimSpace(node.raw.String()))
 
+	case nodeKindListDescriptionItem:
+		err = node.htmlBeginListDescriptionItem(w)
 	}
 	if err != nil {
 		return err
@@ -263,6 +312,8 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 	case nodeKindListOrderedItem, nodeKindListUnorderedItem:
 		_, err = fmt.Fprintf(w, `</li>
 `)
+	case nodeKindListDescriptionItem:
+		err = node.htmlEndListDescriptionItem(w)
 	case nodeKindListOrdered:
 		_, err = fmt.Fprintf(w, `</ol>
 </div>
@@ -271,6 +322,8 @@ func (node *adocNode) toHTML(w io.Writer) (err error) {
 		_, err = fmt.Fprintf(w, `</ul>
 </div>
 `)
+	case nodeKindListDescription:
+		err = node.htmlEndListDescription(w)
 	}
 	if err != nil {
 		return err
@@ -290,6 +343,82 @@ func (node *adocNode) toHTMLBlockTitle(w io.Writer) (err error) {
 	if len(node.rawTitle) > 0 {
 		_, err = fmt.Fprintf(w, `<div class="title">%s</div>
 `, node.rawTitle)
+	}
+	return err
+}
+
+func (node *adocNode) htmlBeginListDescription(w io.Writer) (err error) {
+	if node.style&styleDescriptionHorizontal > 0 {
+		_, err = fmt.Fprintf(w, `<div class="hdlist">
+`)
+
+		err = node.toHTMLBlockTitle(w)
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(w, "<table>\n")
+	} else {
+		_, err = fmt.Fprintf(w, `<div class="dlist">
+`)
+
+		err = node.toHTMLBlockTitle(w)
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(w, "<dl>\n")
+	}
+	return err
+}
+
+func (node *adocNode) htmlEndListDescription(w io.Writer) (err error) {
+	if node.style&styleDescriptionHorizontal > 0 {
+		_, err = fmt.Fprintf(w, "</table>\n</div>\n")
+	} else {
+		_, err = fmt.Fprintf(w, "</dl>\n</div>\n")
+	}
+	return err
+}
+
+func (node *adocNode) htmlBeginListDescriptionItem(w io.Writer) (err error) {
+	if node.style&styleDescriptionHorizontal > 0 {
+		_, err = fmt.Fprintf(w, `<tr>
+<td class="hdlist1">
+%s
+</td>
+<td class="hdlist2">
+`, node.rawTerm.String())
+		if err != nil {
+			return err
+		}
+		if node.raw.Len() > 0 {
+			_, err = fmt.Fprintf(w, `<p>%s</p>
+`, node.raw.String())
+		}
+	} else {
+		_, err = fmt.Fprintf(w, `<dt class="hdlist1">%s</dt>
+<dd>
+`, node.rawTerm.String())
+		if err != nil {
+			return err
+		}
+		if node.raw.Len() > 0 {
+			_, err = fmt.Fprintf(w, `<p>%s</p>
+`, strings.TrimSpace(node.raw.String()))
+		}
+	}
+	return err
+}
+
+func (node *adocNode) htmlEndListDescriptionItem(w io.Writer) (err error) {
+	if node.style&styleDescriptionHorizontal > 0 {
+		_, err = fmt.Fprintf(w, `</td>
+</tr>
+`)
+	} else {
+		_, err = fmt.Fprintf(w, `</dd>
+`)
 	}
 	return err
 }
@@ -315,8 +444,10 @@ func toID(str string) string {
 		if unicode.IsLetter(c) || unicode.IsDigit(c) {
 			id = append(id, c)
 		} else {
-			id = append(id, '_')
+			if id[len(id)-1] != '_' {
+				id = append(id, '_')
+			}
 		}
 	}
-	return string(id)
+	return strings.TrimRight(string(id), "_")
 }
