@@ -119,14 +119,14 @@ Last updated {{.LastUpdated}}
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "PARAGRAPH"}}
-<div class="paragraph">
+<div class="paragraph {{- .Classes}}">
 {{- template "BLOCK_TITLE" .}}
 <p>{{- .Content -}}</p>
 </div>
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "BLOCK_LITERAL"}}
-<div class="literalblock">
+<div class="literalblock {{- .Classes}}">
 <div class="content">
 <pre>{{.Content -}}</pre>
 </div>
@@ -134,7 +134,7 @@ Last updated {{.LastUpdated}}
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "BLOCK_LISTING"}}
-<div class="listingblock">
+<div class="listingblock {{- .Classes}}">
 <div class="content">
 <pre>{{.Content -}}</pre>
 </div>
@@ -144,7 +144,7 @@ Last updated {{.LastUpdated}}
 {{- define "BEGIN_LIST_ORDERED"}}
 {{- $class := .GetListOrderedClass}}
 {{- $type := .GetListOrderedType}}
-<div class="olist {{$class}}">
+<div class="olist {{$class}} {{- .Classes}}">
 {{- template "BLOCK_TITLE" .}}
 <ol class="{{$class}}"{{- if $type}} type="{{$type}}"{{end}}>
 {{- end}}
@@ -154,7 +154,7 @@ Last updated {{.LastUpdated}}
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "BEGIN_LIST_UNORDERED"}}
-<div class="ulist">
+<div class="ulist {{- .Classes}}">
 {{- template "BLOCK_TITLE" .}}
 <ul>
 {{- end}}
@@ -165,15 +165,15 @@ Last updated {{.LastUpdated}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "BEGIN_LIST_DESCRIPTION"}}
 	{{- if .IsStyleQandA}}
-<div class="qlist qanda">
+<div class="qlist qanda {{- .Classes}}">
 {{- template "BLOCK_TITLE" .}}
 <ol>
 	{{- else if .IsStyleHorizontal}}
-<div class="hdlist">
+<div class="hdlist {{- .Classes}}">
 {{- template "BLOCK_TITLE" .}}
 <table>
 	{{- else}}
-<div class="dlist">
+<div class="dlist {{- .Classes}}">
 {{- template "BLOCK_TITLE" .}}
 <dl>
 	{{- end}}
@@ -235,7 +235,7 @@ Last updated {{.LastUpdated}}
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
 {{- define "BLOCK_IMAGE"}}
-<div class="imageblock">
+<div class="imageblock {{- .Classes}}">
 <div class="content">
 <img src="{{.Content}}" alt="{{.Alt}}"
 	{{- if .Width}} width="{{.Width}}"{{end}}

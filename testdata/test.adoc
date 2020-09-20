@@ -394,3 +394,23 @@ image::sunset.jpg[1,abc,def]
 image::sunset.jpg[1,abc,def,ghi]
 
 image::notexist.jpg[]
+
+image::https://upload.wikimedia.org/wikipedia/commons/3/35/Tux.svg[Tux,250,350]
+
+image::sunset.png[Tiger1,100,100,float="right",align="center"]
+
+image::sunset.png[Tiger2,100,100,float="righx"]
+
+image::sunset.png[Tiger3,100,100,floax="right"]
+
+image::sunset.png[Tiger4,100,100,role="right"]
+
+image::sunset.png[Tiger5,100,100,role="righx"]
+
+image::sunset.png[Tiger6,100,100,role="right left"]
+
+[.right.text-center]
+image::sunset.png[Tiger7,100,100]
+
+[.righx.center]
+image::sunset.png[Tiger8,100,100]

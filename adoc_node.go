@@ -45,6 +45,7 @@ const (
 	lineKindListContinue              // A single "+" line
 	lineKindPageBreak                 // "<<<"
 	lineKindStyle                     // Line start with "["
+	lineKindStyleClass                // Custom style "[.x.y]"
 	lineKindText                      //
 )
 
@@ -58,6 +59,7 @@ type adocNode struct {
 	rawTerm  bytes.Buffer
 	rawTitle string
 	style    int64
+	classes  []string
 	Alt      string
 	Width    string
 	Height   string
@@ -160,22 +162,55 @@ func (node *adocNode) parseImage(line string) bool {
 	node.raw.WriteString(name)
 
 	attrs := strings.Split(line[attrBegin+1:attrEnd], ",")
-	if len(attrs) >= 1 {
-		node.Alt = strings.TrimSpace(attrs[0])
-		if len(node.Alt) == 0 {
-			dot := strings.IndexByte(name, '.')
-			if dot > 0 {
-				node.Alt = name[:dot]
+	for x, attr := range attrs {
+		switch x {
+		case 0:
+			node.Alt = strings.TrimSpace(attrs[0])
+			if len(node.Alt) == 0 {
+				dot := strings.IndexByte(name, '.')
+				if dot > 0 {
+					node.Alt = name[:dot]
+				}
+			}
+		case 1:
+			node.Width = attrs[1]
+		case 2:
+			node.Height = attrs[2]
+		default:
+			kv := strings.SplitN(attr, "=", 2)
+			if len(kv) != 2 {
+				continue
+			}
+			var (
+				ok  bool
+				val = strings.Trim(kv[1], `"`)
+			)
+			switch kv[0] {
+			case "float", "align", "role":
+				ok = true
+				if val == "center" {
+					val = "text-center"
+				}
+			}
+			if ok {
+				if len(val) > 0 {
+					node.classes = append(node.classes, val)
+				}
 			}
 		}
 	}
-	if len(attrs) >= 2 {
-		node.Width = attrs[1]
-	}
-	if len(attrs) >= 3 {
-		node.Height = attrs[2]
-	}
 	return true
+}
+
+func (node *adocNode) parseStyleClass(line string) {
+	line = strings.Trim(line, "[]")
+	parts := strings.Split(line, ".")
+	for _, class := range parts {
+		class = strings.TrimSpace(class)
+		if len(class) > 0 {
+			node.classes = append(node.classes, class)
+		}
+	}
 }
 
 func (node *adocNode) addChild(child *adocNode) {
@@ -329,6 +364,13 @@ func (node *adocNode) GenerateID(str string) string {
 		}
 	}
 	return strings.TrimRight(string(id), "_")
+}
+
+func (node *adocNode) Classes() string {
+	if len(node.classes) == 0 {
+		return ""
+	}
+	return " " + strings.Join(node.classes, " ")
 }
 
 func (node *adocNode) Content() string {

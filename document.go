@@ -141,6 +141,11 @@ func (doc *Document) Parse(content []byte) (err error) {
 				continue
 			}
 
+		case lineKindStyleClass:
+			doc.nodeCurrent.parseStyleClass(line)
+			line = ""
+			continue
+
 		case lineKindText, lineKindListContinue:
 			if doc.nodeCurrent.kind == nodeKindUnknown {
 				doc.nodeCurrent.kind = nodeKindParagraph
@@ -1104,6 +1109,8 @@ func (doc *Document) whatKindOfLine(line string) (spaces, got string) {
 		if newline[len(newline)-1] == ']' {
 			if line == "[literal]" {
 				doc.kind = nodeKindBlockLiteralNamed
+			} else if line[1] == '.' {
+				doc.kind = lineKindStyleClass
 			} else {
 				doc.kind = lineKindStyle
 			}
