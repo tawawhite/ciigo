@@ -281,6 +281,19 @@ func (doc *Document) Parse(content []byte) (err error) {
 				doc.nodeCurrent.raw.WriteString("video::" + line)
 				doc.nodeCurrent.raw.WriteByte('\n')
 			}
+
+		case nodeKindBlockAudio:
+			if doc.nodeCurrent.kind != nodeKindUnknown {
+				doc.terminateCurrentNode()
+			}
+			if doc.nodeCurrent.parseBlockAudio(line) {
+				doc.nodeCurrent.kind = doc.kind
+				doc.terminateCurrentNode()
+			} else {
+				doc.nodeCurrent.kind = nodeKindParagraph
+				doc.nodeCurrent.raw.WriteString("audio::" + line)
+				doc.nodeCurrent.raw.WriteByte('\n')
+			}
 		}
 		line = ""
 	}

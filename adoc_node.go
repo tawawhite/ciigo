@@ -26,25 +26,26 @@ const (
 	nodeKindSectionL5                 // Line started with "======"
 	nodeKindParagraph                 // Wrapper.
 	nodeKindLiteralParagraph          // 10: Line start with space
+	nodeKindBlockAudio                // "audio::"
 	nodeKindBlockImage                // "image::"
 	nodeKindBlockListingDelimiter     // Block start and end with "----"
 	nodeKindBlockLiteralNamed         // Block start with "[literal]", end with ""
-	nodeKindBlockLiteralDelimiter     // Block start and end with "...."
-	nodeKindBlockOpen                 // 15: Block wrapped with "--"
+	nodeKindBlockLiteralDelimiter     // 15: Block start and end with "...."
+	nodeKindBlockOpen                 // Block wrapped with "--"
 	nodeKindBlockSidebar              // "****"
 	nodeKindBlockVideo                // "video::"
 	nodeKindListOrdered               // Wrapper.
-	nodeKindListOrderedItem           // Line start with ". "
+	nodeKindListOrderedItem           // 20: Line start with ". "
 	nodeKindListUnordered             // Wrapper.
-	nodeKindListUnorderedItem         // 20: Line start with "* "
+	nodeKindListUnorderedItem         // Line start with "* "
 	nodeKindListDescription           // Wrapper.
 	nodeKindListDescriptionItem       // Line that has "::" + WSP
-	lineKindEmpty                     //
+	lineKindEmpty                     // 25:
 	lineKindBlockTitle                // Line start with ".<alnum>"
-	lineKindBlockComment              // 25: Block start and end with "////"
+	lineKindBlockComment              // Block start and end with "////"
 	lineKindComment                   // Line start with "//"
 	lineKindAttribute                 // Line start with ":"
-	lineKindHorizontalRule            // "'''", "---", "- - -", "***", "* * *"
+	lineKindHorizontalRule            // 30: "'''", "---", "- - -", "***", "* * *"
 	lineKindListContinue              // A single "+" line
 	lineKindPageBreak                 // "<<<"
 	lineKindStyle                     // Line start with "["
@@ -69,12 +70,12 @@ const (
 )
 
 const (
-	optVideoAutoplay              = "autoplay"
-	optVideoControls              = "controls"
+	optNameAutoplay               = "autoplay"
+	optNameControls               = "controls"
+	optNameLoop                   = "loop"
+	optNameNocontrols             = "nocontrols"
 	optVideoFullscreen            = "fs"
-	optVideoLoop                  = "loop"
 	optVideoModest                = "modest"
-	optVideoNocontrols            = "nocontrols"
 	optVideoNofullscreen          = "nofullscreen"
 	optVideoPlaylist              = "playlist"
 	optVideoYoutubeModestbranding = "modestbranding"
@@ -95,6 +96,7 @@ type adocNode struct {
 	Width    string
 	Height   string
 	Attrs    map[string]string
+	Opts     map[string]string
 
 	parent *adocNode
 	child  *adocNode
@@ -245,6 +247,53 @@ func (node *adocNode) parseStyleClass(line string) {
 	}
 }
 
+func (node *adocNode) parseBlockAudio(line string) bool {
+	attrBegin := strings.IndexByte(line, '[')
+	if attrBegin < 0 {
+		return false
+	}
+	attrEnd := strings.IndexByte(line, ']')
+	if attrEnd < 0 {
+		return false
+	}
+
+	src := strings.TrimRight(line[:attrBegin], " \t")
+	attrs := parseBlockAttribute(line[attrBegin : attrEnd+1])
+	node.Attrs = make(map[string]string, len(attrs)+1)
+	node.Attrs[attrNameSrc] = src
+
+	var key, val string
+	for _, attr := range attrs {
+		kv := strings.Split(attr, "=")
+
+		key = strings.ToLower(kv[0])
+		if len(kv) >= 2 {
+			val = kv[1]
+		} else {
+			val = "1"
+		}
+
+		if key == attrNameOptions {
+			node.Attrs[key] = val
+			opts := strings.Split(val, ",")
+			node.Opts = make(map[string]string, len(opts))
+			node.Opts[optNameControls] = "1"
+
+			for _, opt := range opts {
+				switch opt {
+				case optNameNocontrols:
+					node.Opts[optNameControls] = "0"
+				case optNameControls:
+					node.Opts[optNameControls] = "1"
+				default:
+					node.Opts[opt] = "1"
+				}
+			}
+		}
+	}
+	return true
+}
+
 func (node *adocNode) parseVideo(line string) bool {
 	attrBegin := strings.IndexByte(line, '[')
 	if attrBegin < 0 {
@@ -257,8 +306,6 @@ func (node *adocNode) parseVideo(line string) bool {
 
 	videoSrc := strings.TrimRight(line[:attrBegin], " \t")
 	attrs := parseBlockAttribute(line[attrBegin : attrEnd+1])
-
-	fmt.Printf("parseVideo: attrs: %+v\n", attrs)
 
 	if node.Attrs == nil {
 		node.Attrs = make(map[string]string, len(attrs)+1)
@@ -276,7 +323,6 @@ func (node *adocNode) parseVideo(line string) bool {
 			val = "1"
 		}
 
-		fmt.Printf("parseVideo: attrs[%d] %s %s\n", x, key, val)
 		if x == 0 {
 			if key == attrNameYoutube {
 				node.Attrs[key] = val
@@ -371,6 +417,8 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "BEGIN_BLOCK_OPEN", node)
 	case nodeKindBlockVideo:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_VIDEO", node)
+	case nodeKindBlockAudio:
+		err = tmpl.ExecuteTemplate(w, "BLOCK_AUDIO", node)
 	}
 	if err != nil {
 		return err
@@ -519,12 +567,12 @@ func (node *adocNode) GetVideoSource() string {
 		for _, opt := range opts {
 			opt = strings.TrimSpace(opt)
 			switch opt {
-			case optVideoAutoplay, optVideoLoop:
+			case optNameAutoplay, optNameLoop:
 				q = append(q, opt+"=1")
 			case optVideoModest:
 				q = append(q, optVideoYoutubeModestbranding+"=1")
-			case optVideoNocontrols:
-				q = append(q, optVideoControls+"=0")
+			case optNameNocontrols:
+				q = append(q, optNameControls+"=0")
 				q = append(q, optVideoPlaylist+"="+src)
 			case optVideoNofullscreen:
 				q = append(q, optVideoFullscreen+"=0")
@@ -548,7 +596,7 @@ func (node *adocNode) GetVideoSource() string {
 		for _, opt := range opts {
 			opt = strings.TrimSpace(opt)
 			switch opt {
-			case optVideoAutoplay, optVideoLoop:
+			case optNameAutoplay, optNameLoop:
 				q = append(q, opt+"=1")
 			}
 		}
@@ -560,8 +608,8 @@ func (node *adocNode) GetVideoSource() string {
 		for _, opt := range opts {
 			opt = strings.TrimSpace(opt)
 			switch opt {
-			case optVideoAutoplay, optVideoLoop:
-				node.Attrs[optVideoNocontrols] = "1"
+			case optNameAutoplay, optNameLoop:
+				node.Attrs[optNameNocontrols] = "1"
 				node.Attrs[opt] = "1"
 			}
 		}

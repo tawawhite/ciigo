@@ -457,3 +457,8 @@ video::rPQoq7ThGAU[width=640,height=320, start=60, end=140,lang=fr,youtube]
 
 .Vimeo
 video::67480300[vimeo, width=640,height=320, start=60, end=140,options="autoplay, loop, modest, nocontrols, nofullscreen",theme=light,lang=fr]
+
+
+==  Audio
+
+audio::ocean_waves.mp3[options="autoplay,loop"]

@@ -131,6 +131,18 @@ COMMENTS = *(COMMENT_SINGLE / COMMENT_BLOCK)
 BLOCK_VIDEO = "video::" (URL / WORD) "[" ( "youtube" / "vimeo" ) *(BLOCK_ATTR) "]"
 ----
 
+
+==  Audio
+
+----
+BLOCK_AUDIO = "audio::" (URL / WORD) "["
+              ( "options" "=" DQUOTE *AUDIO_ATTR_OPTIONS DQUOTE )
+            "]"
+
+AUDIO_ATTR_OPTIONS = "autoplay" | "loop" | "controls" | "nocontrols"
+----
+
+
 ==  Block attributes
 
 ----

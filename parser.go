@@ -139,6 +139,10 @@ func whatKindOfLine(line string) (kind int, spaces, got string) {
 		line = strings.TrimRight(line[7:], " \t")
 		return nodeKindBlockVideo, "", line
 	}
+	if strings.HasPrefix(line, "audio::") {
+		line = strings.TrimRight(line[7:], " \t")
+		return nodeKindBlockAudio, "", line
+	}
 
 	var (
 		x        int

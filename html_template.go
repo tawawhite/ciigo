@@ -293,6 +293,20 @@ Your browser does not support the video tag.
 </div>
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
+{{- define "BLOCK_AUDIO"}}
+<div class="audioblock">
+{{- template "BLOCK_TITLE" .}}
+<div class="content">
+<audio src="{{.Attrs.src}}"
+	{{- if .Opts.autoplay}} autoplay{{end}}
+	{{- if eq .Opts.controls "1"}} controls{{end}}
+	{{- if .Opts.loop}} loop{{end}}>
+Your browser does not support the audio tag.
+</audio>
+</div>
+</div>
+{{- end}}
+{{/*----------------------------------------------------------------------*/}}
 `)
 	return tmpl, err
 }
