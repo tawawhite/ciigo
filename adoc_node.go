@@ -26,6 +26,7 @@ const (
 	nodeKindSectionL5                 // Line started with "======"
 	nodeKindParagraph                 // Wrapper.
 	nodeKindLiteralParagraph          // 10: Line start with space
+	nodeKindBlockAdmonition           // "[" ADMONITION "]"
 	nodeKindBlockAudio                // "audio::"
 	nodeKindBlockImage                // "image::"
 	nodeKindBlockListingDelimiter     // Block start and end with "----"
@@ -40,12 +41,13 @@ const (
 	nodeKindListUnorderedItem         // Line start with "* "
 	nodeKindListDescription           // Wrapper.
 	nodeKindListDescriptionItem       // Line that has "::" + WSP
-	lineKindEmpty                     // 25:
-	lineKindBlockTitle                // Line start with ".<alnum>"
-	lineKindBlockComment              // Block start and end with "////"
-	lineKindComment                   // Line start with "//"
+	lineKindAdmonition                // 25:
 	lineKindAttribute                 // Line start with ":"
-	lineKindHorizontalRule            // 30: "'''", "---", "- - -", "***", "* * *"
+	lineKindBlockComment              // Block start and end with "////"
+	lineKindBlockTitle                // Line start with ".<alnum>"
+	lineKindComment                   // Line start with "//"
+	lineKindEmpty                     // 30:
+	lineKindHorizontalRule            // "'''", "---", "- - -", "***", "* * *"
 	lineKindListContinue              // A single "+" line
 	lineKindPageBreak                 // "<<<"
 	lineKindStyle                     // Line start with "["
@@ -347,6 +349,16 @@ func (node *adocNode) parseVideo(line string) bool {
 	return true
 }
 
+func (node *adocNode) parseLineAdmonition(line string) {
+	sep := strings.IndexByte(line, ':')
+	class := strings.ToLower(line[:sep])
+	node.classes = append(node.classes, class)
+	node.rawTerm.WriteString(strings.Title(class))
+	line = strings.TrimSpace(line[sep+1:])
+	node.raw.WriteString(line)
+	node.raw.WriteByte('\n')
+}
+
 func (node *adocNode) addChild(child *adocNode) {
 	child.parent = node
 	child.next = nil
@@ -419,6 +431,8 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "BLOCK_VIDEO", node)
 	case nodeKindBlockAudio:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_AUDIO", node)
+	case lineKindAdmonition:
+		err = tmpl.ExecuteTemplate(w, "BEGIN_ADMONITION", node)
 	}
 	if err != nil {
 		return err
@@ -450,6 +464,8 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "END_LIST_DESCRIPTION", node)
 	case nodeKindBlockOpen:
 		err = tmpl.ExecuteTemplate(w, "END_BLOCK_OPEN", node)
+	case lineKindAdmonition:
+		err = tmpl.ExecuteTemplate(w, "END_ADMONITION", node)
 	}
 	if err != nil {
 		return err

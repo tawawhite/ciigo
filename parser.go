@@ -11,6 +11,44 @@ import (
 	"github.com/shuLhan/share/lib/parser"
 )
 
+const (
+	admonitionCaution   = "CAUTION"
+	admonitionImportant = "IMPORTANT"
+	admonitionNote      = "NOTE"
+	admonitionTip       = "TIP"
+	admonitionWarning   = "WARNING"
+)
+
+func isAdmonition(line string) bool {
+	var x int
+	if strings.HasPrefix(line, admonitionCaution) {
+		x = len(admonitionCaution)
+	} else if strings.HasPrefix(line, admonitionImportant) {
+		x = len(admonitionImportant)
+	} else if strings.HasPrefix(line, admonitionNote) {
+		x = len(admonitionNote)
+	} else if strings.HasPrefix(line, admonitionTip) {
+		x = len(admonitionTip)
+	} else if strings.HasPrefix(line, admonitionWarning) {
+		x = len(admonitionWarning)
+	} else {
+		return false
+	}
+	if x >= len(line) {
+		return false
+	}
+	if line[x] == ':' {
+		x++
+		if x >= len(line) {
+			return false
+		}
+		if line[x] == ' ' || line[x] == '\t' {
+			return true
+		}
+	}
+	return false
+}
+
 func isLineDescriptionItem(line string) bool {
 	x := strings.Index(line, ":: ")
 	if x > 0 {
@@ -142,6 +180,9 @@ func whatKindOfLine(line string) (kind int, spaces, got string) {
 	if strings.HasPrefix(line, "audio::") {
 		line = strings.TrimRight(line[7:], " \t")
 		return nodeKindBlockAudio, "", line
+	}
+	if isAdmonition(line) {
+		return lineKindAdmonition, "", line
 	}
 
 	var (

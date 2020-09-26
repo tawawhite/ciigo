@@ -172,6 +172,21 @@ func (doc *Document) Parse(content []byte) (err error) {
 			line = ""
 			continue
 
+		case lineKindAdmonition:
+			doc.nodeCurrent.kind = lineKindAdmonition
+			doc.nodeCurrent.parseLineAdmonition(line)
+			line, c = doc.consumeLinesUntil(
+				doc.nodeCurrent,
+				lineKindEmpty,
+				[]int{
+					nodeKindBlockListingDelimiter,
+					nodeKindBlockLiteralDelimiter,
+					nodeKindBlockLiteralNamed,
+					lineKindListContinue,
+				})
+			doc.terminateCurrentNode()
+			continue
+
 		case nodeKindSectionL1, nodeKindSectionL2,
 			nodeKindSectionL3, nodeKindSectionL4,
 			nodeKindSectionL5:
@@ -419,6 +434,11 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 			continue
 		}
 
+		if doc.kind == lineKindAdmonition {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
 		if doc.kind == lineKindText {
 			if doc.prevKind == lineKindEmpty {
 				break
@@ -574,6 +594,11 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 			continue
 		}
 
+		if doc.kind == lineKindAdmonition {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
 		if doc.kind == lineKindText {
 			if doc.prevKind == lineKindEmpty {
 				break
@@ -953,6 +978,22 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 			break
 		}
 
+		if doc.kind == lineKindAdmonition {
+			node = &adocNode{
+				kind: lineKindAdmonition,
+			}
+			node.parseLineAdmonition(line)
+			line, c = doc.consumeLinesUntil(
+				node,
+				lineKindEmpty,
+				[]int{
+					nodeKindBlockListingDelimiter,
+					nodeKindBlockLiteralDelimiter,
+					nodeKindBlockLiteralNamed,
+					lineKindListContinue,
+				})
+			break
+		}
 		if doc.kind == lineKindBlockComment {
 			doc.parseIgnoreCommentBlock()
 			continue

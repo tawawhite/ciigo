@@ -462,3 +462,34 @@ video::67480300[vimeo, width=640,height=320, start=60, end=140,options="autoplay
 ==  Audio
 
 audio::ocean_waves.mp3[options="autoplay,loop"]
+
+
+==  Admonition
+
+===  Line admonition
+
+Admonition between a paragraph.
+WARNING: Wolpertingers are known to nest in server racks.
+Enter at your own risk.
+
+WARNING: Wolpertingers are known to nest in server racks.
+Enter at your own risk.
++
+Is this inside admonition too?
+
+NOTE:	With tab.
+
+TIP:  With multiple spaces.
+
+Can admonition added inside list,
+
+* List 1
++
+IMPORTANT: inside list
++
+* List 2
+
+CAUTION: admonition followed by list
+* List item
+
+END OF TEST.

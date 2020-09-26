@@ -307,6 +307,23 @@ Your browser does not support the audio tag.
 </div>
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
+{{- define "BEGIN_ADMONITION"}}
+<div class="admonitionblock {{- .Classes}}">
+<table>
+<tr>
+<td class="icon">
+<div class="title">{{.Terminology}}</div>
+</td>
+<td class="content">
+{{.Content}}
+{{- end}}
+{{- define "END_ADMONITION"}}
+</td>
+</tr>
+</table>
+</div>
+{{- end}}
+{{/*----------------------------------------------------------------------*/}}
 `)
 	return tmpl, err
 }

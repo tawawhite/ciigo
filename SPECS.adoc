@@ -403,10 +403,11 @@ class: `admonitionblock`
 AdmonitionType    = %s"NOTE" / %s"TIP" / %s"IMPORTANT" / %s"WARNING"
                   / %s"CAUTION"
 
-Admonition        = AdmonitionType COLON WSP Paragraph
+Admonition        = LF
+                    AdmonitionType COLON 1*WSP Paragraph
 
 BlockAdmonition   = [BlockTitle]
-                    LSQUARE AdmonitionType *WSP *BlockOptionItem RSQUARE LF
+                    "[" AdmonitionType *WSP *BlockOptionItem "]" LF
                     BlockAdoc
 ----
 
