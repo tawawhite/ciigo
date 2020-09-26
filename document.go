@@ -268,6 +268,19 @@ func (doc *Document) Parse(content []byte) (err error) {
 			doc.nodeCurrent.kind = doc.kind
 			doc.parseBlockOpen(doc.nodeCurrent)
 			doc.terminateCurrentNode()
+
+		case nodeKindBlockVideo:
+			if doc.nodeCurrent.kind != nodeKindUnknown {
+				doc.terminateCurrentNode()
+			}
+			if doc.nodeCurrent.parseVideo(line) {
+				doc.nodeCurrent.kind = doc.kind
+				doc.terminateCurrentNode()
+			} else {
+				doc.nodeCurrent.kind = nodeKindParagraph
+				doc.nodeCurrent.raw.WriteString("video::" + line)
+				doc.nodeCurrent.raw.WriteByte('\n')
+			}
 		}
 		line = ""
 	}
@@ -1285,6 +1298,11 @@ func (doc *Document) whatKindOfLine(line string) (spaces, got string) {
 		doc.kind = nodeKindBlockImage
 		line = strings.TrimRight(line[7:], " \t")
 		return spaces, line
+	}
+	if strings.HasPrefix(line, "video::") {
+		doc.kind = nodeKindBlockVideo
+		line = strings.TrimRight(line[7:], " \t")
+		return "", line
 	}
 
 	var (

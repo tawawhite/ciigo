@@ -264,6 +264,35 @@ Last updated {{.LastUpdated}}
 </div>
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
+{{- define "BLOCK_VIDEO"}}
+<div class="videoblock">
+{{- template "BLOCK_TITLE" .}}
+<div class="content">
+	{{- if .Attrs.youtube}}
+<iframe
+		{{- if .Width}} width="{{.Width}}" {{- end}}
+		{{- if .Height}} height="{{.Height}}" {{- end}} src="{{.GetVideoSource}}" frameborder="0"
+		{{- if not .Attrs.nofullscreen}} allowfullscreen{{end}}></iframe>
+	{{- else if .Attrs.vimeo}}
+<iframe
+		{{- if .Width}} width="{{.Width}}" {{- end}}
+		{{- if .Height}} height="{{.Height}}" {{- end }} src="{{.GetVideoSource}}" frameborder="0"></iframe>
+	{{- else}}
+<video src="{{.GetVideoSource}}"
+		{{- if .Width}} width="{{.Width}}"{{- end}}
+		{{- if .Height}} height="{{.Height}}"{{- end -}}
+		{{- if .Attrs.poster}} poster="{{.Attrs.poster}}"{{end -}}
+		{{- if not .Attrs.nocontrols}} controls{{end -}}
+		{{- if .Attrs.autoplay}} autoplay{{end -}}
+		{{- if .Attrs.loop}} loop{{end -}}
+>
+Your browser does not support the video tag.
+</video>
+	{{- end}}
+</div>
+</div>
+{{- end}}
+{{/*----------------------------------------------------------------------*/}}
 `)
 	return tmpl, err
 }

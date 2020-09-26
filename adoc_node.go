@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net/url"
 	"strings"
 	"unicode"
 )
@@ -31,6 +32,7 @@ const (
 	nodeKindBlockLiteralDelimiter     // Block start and end with "...."
 	nodeKindBlockOpen                 // 15: Block wrapped with "--"
 	nodeKindBlockSidebar              // "****"
+	nodeKindBlockVideo                // "video::"
 	nodeKindListOrdered               // Wrapper.
 	nodeKindListOrderedItem           // Line start with ". "
 	nodeKindListUnordered             // Wrapper.
@@ -50,6 +52,34 @@ const (
 	lineKindText                      //
 )
 
+const (
+	attrNameEnd         = "end"
+	attrNameHeight      = "height"
+	attrNameLang        = "lang"
+	attrNameOptions     = "options"
+	attrNamePoster      = "poster"
+	attrNameRel         = "rel"
+	attrNameSrc         = "src"
+	attrNameStart       = "start"
+	attrNameTheme       = "theme"
+	attrNameVimeo       = "vimeo"
+	attrNameWidth       = "width"
+	attrNameYoutube     = "youtube"
+	attrNameYoutubeLang = "hl"
+)
+
+const (
+	optVideoAutoplay              = "autoplay"
+	optVideoControls              = "controls"
+	optVideoFullscreen            = "fs"
+	optVideoLoop                  = "loop"
+	optVideoModest                = "modest"
+	optVideoNocontrols            = "nocontrols"
+	optVideoNofullscreen          = "nofullscreen"
+	optVideoPlaylist              = "playlist"
+	optVideoYoutubeModestbranding = "modestbranding"
+)
+
 //
 // adocNode is the building block of asciidoc document.
 //
@@ -64,6 +94,7 @@ type adocNode struct {
 	Alt      string
 	Width    string
 	Height   string
+	Attrs    map[string]string
 
 	parent *adocNode
 	child  *adocNode
@@ -214,6 +245,62 @@ func (node *adocNode) parseStyleClass(line string) {
 	}
 }
 
+func (node *adocNode) parseVideo(line string) bool {
+	attrBegin := strings.IndexByte(line, '[')
+	if attrBegin < 0 {
+		return false
+	}
+	attrEnd := strings.IndexByte(line, ']')
+	if attrEnd < 0 {
+		return false
+	}
+
+	videoSrc := strings.TrimRight(line[:attrBegin], " \t")
+	attrs := parseBlockAttribute(line[attrBegin : attrEnd+1])
+
+	fmt.Printf("parseVideo: attrs: %+v\n", attrs)
+
+	if node.Attrs == nil {
+		node.Attrs = make(map[string]string, len(attrs)+1)
+	}
+	node.Attrs[attrNameSrc] = videoSrc
+
+	var key, val string
+	for x, attr := range attrs {
+		kv := strings.Split(attr, "=")
+
+		key = strings.ToLower(kv[0])
+		if len(kv) >= 2 {
+			val = kv[1]
+		} else {
+			val = "1"
+		}
+
+		fmt.Printf("parseVideo: attrs[%d] %s %s\n", x, key, val)
+		if x == 0 {
+			if key == attrNameYoutube {
+				node.Attrs[key] = val
+				continue
+			}
+			if key == attrNameVimeo {
+				node.Attrs[key] = val
+				continue
+			}
+		}
+
+		switch key {
+		case attrNameWidth:
+			node.Width = val
+		case attrNameHeight:
+			node.Height = val
+		case attrNameOptions, attrNamePoster, attrNameStart,
+			attrNameEnd, attrNameTheme, attrNameLang:
+			node.Attrs[key] = val
+		}
+	}
+	return true
+}
+
 func (node *adocNode) addChild(child *adocNode) {
 	child.parent = node
 	child.next = nil
@@ -282,6 +369,8 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "BLOCK_IMAGE", node)
 	case nodeKindBlockOpen:
 		err = tmpl.ExecuteTemplate(w, "BEGIN_BLOCK_OPEN", node)
+	case nodeKindBlockVideo:
+		err = tmpl.ExecuteTemplate(w, "BLOCK_VIDEO", node)
 	}
 	if err != nil {
 		return err
@@ -396,4 +485,105 @@ func (node *adocNode) Terminology() string {
 
 func (node *adocNode) Title() string {
 	return node.rawTitle
+}
+
+//
+// GetVideoSource generate video full URL for HTML attribute "src".
+//
+func (node *adocNode) GetVideoSource() string {
+	var (
+		u        = new(url.URL)
+		q        []string
+		fragment string
+	)
+
+	src := node.Attrs[attrNameSrc]
+	opts := strings.Split(node.Attrs[attrNameOptions], ",")
+
+	_, ok := node.Attrs[attrNameYoutube]
+	if ok {
+		u.Scheme = "https"
+		u.Host = "www.youtube.com"
+		u.Path = "/embed/" + src
+
+		q = append(q, "rel=0")
+
+		v, ok := node.Attrs[attrNameStart]
+		if ok {
+			q = append(q, attrNameStart+"="+v)
+		}
+		v, ok = node.Attrs[attrNameEnd]
+		if ok {
+			q = append(q, attrNameEnd+"="+v)
+		}
+		for _, opt := range opts {
+			opt = strings.TrimSpace(opt)
+			switch opt {
+			case optVideoAutoplay, optVideoLoop:
+				q = append(q, opt+"=1")
+			case optVideoModest:
+				q = append(q, optVideoYoutubeModestbranding+"=1")
+			case optVideoNocontrols:
+				q = append(q, optVideoControls+"=0")
+				q = append(q, optVideoPlaylist+"="+src)
+			case optVideoNofullscreen:
+				q = append(q, optVideoFullscreen+"=0")
+				node.Attrs[optVideoNofullscreen] = "1"
+			}
+		}
+		v, ok = node.Attrs[attrNameTheme]
+		if ok {
+			q = append(q, attrNameTheme+"="+v)
+		}
+		v, ok = node.Attrs[attrNameLang]
+		if ok {
+			q = append(q, attrNameYoutubeLang+"="+v)
+		}
+
+	} else if _, ok = node.Attrs[attrNameVimeo]; ok {
+		u.Scheme = "https"
+		u.Host = "player.vimeo.com"
+		u.Path = "/video/" + src
+
+		for _, opt := range opts {
+			opt = strings.TrimSpace(opt)
+			switch opt {
+			case optVideoAutoplay, optVideoLoop:
+				q = append(q, opt+"=1")
+			}
+		}
+		v, ok := node.Attrs[attrNameStart]
+		if ok {
+			fragment = "at=" + v
+		}
+	} else {
+		for _, opt := range opts {
+			opt = strings.TrimSpace(opt)
+			switch opt {
+			case optVideoAutoplay, optVideoLoop:
+				node.Attrs[optVideoNocontrols] = "1"
+				node.Attrs[opt] = "1"
+			}
+		}
+
+		v, ok := node.Attrs[attrNameStart]
+		if ok {
+			fragment = "t=" + v
+			v, ok = node.Attrs[attrNameEnd]
+			if ok {
+				fragment += "," + v
+			}
+		} else if v, ok = node.Attrs[attrNameEnd]; ok {
+			fragment = "t=0," + v
+		}
+
+		if len(fragment) > 0 {
+			src = src + "#" + fragment
+		}
+		return src
+	}
+	u.RawQuery = strings.Join(q, "&")
+	u.Fragment = fragment
+
+	return u.String()
 }

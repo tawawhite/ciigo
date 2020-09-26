@@ -125,6 +125,20 @@ COMMENT_BLOCK  = "////" LF
 COMMENTS = *(COMMENT_SINGLE / COMMENT_BLOCK)
 ----
 
+==  Video
+
+----
+BLOCK_VIDEO = "video::" (URL / WORD) "[" ( "youtube" / "vimeo" ) *(BLOCK_ATTR) "]"
+----
+
+==  Block attributes
+
+----
+BLOCK_ATTRS = BLOCK_ATTR *("," BLOCK_ATTR)
+
+BLOCK_ATTR  = WORD "=" (DQUOTE) WORD (DQUOTE)
+----
+
 ==  Common rules
 
 ----
@@ -174,7 +188,7 @@ LOCATION      = URL_LOCAL / URL_WINDOWS / URL_EXTERNAL / URL_LITERAL
 ----
 Options     = LSQUARE *("%" WORD) RSQUARE LF
 
-OptionValue = WORD *("," WORD)
+OptionValue = [DQUOTE] WORD *("," WORD) [DQUOTE]
 
 RoleName    = WORD
 

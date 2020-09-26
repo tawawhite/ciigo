@@ -436,3 +436,24 @@ Text below images.
 --
 == Section
 --
+
+
+==  Video
+
+.Video without options
+video::video_file.mp4[poster="sunset.jpg",width=640,height=320, start=60, end=140]
+
+.Video with nocontrols, nofullscreen
+video::video_file.mp4[poster="sunset.jpg",width=640,height=320, start=60, end=140, options="autoplay, loop, modest, nocontrols, nofullscreen"]
+
+.Youtube default options
+video::rPQoq7ThGAU[youtube,width=640,height=320, start=60, end=140,lang=fr]
+
+.Youtube
+video::rPQoq7ThGAU[youtube,width=640,height=320, start=60, end=140,options="autoplay, loop, modest, nocontrols, nofullscreen",theme=light,lang=fr]
+
+.Youtube attribute at the end
+video::rPQoq7ThGAU[width=640,height=320, start=60, end=140,lang=fr,youtube]
+
+.Vimeo
+video::67480300[vimeo, width=640,height=320, start=60, end=140,options="autoplay, loop, modest, nocontrols, nofullscreen",theme=light,lang=fr]
