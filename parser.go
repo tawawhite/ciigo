@@ -41,11 +41,7 @@ const (
 	styleNumberingLowergreek
 	styleDescriptionHorizontal
 	styleDescriptionQandA
-	styleAdmonitionCaution
-	styleAdmonitionImportant
-	styleAdmonitionNote
-	styleAdmonitionTip
-	styleAdmonitionWarning
+	styleAdmonition
 )
 
 var adocStyles map[string]int64 = map[string]int64{
@@ -69,11 +65,11 @@ var adocStyles map[string]int64 = map[string]int64{
 	"lowergreek":        styleNumberingLowergreek,
 	"horizontal":        styleDescriptionHorizontal,
 	"qanda":             styleDescriptionQandA,
-	admonitionCaution:   styleAdmonitionCaution,
-	admonitionImportant: styleAdmonitionImportant,
-	admonitionNote:      styleAdmonitionNote,
-	admonitionTip:       styleAdmonitionTip,
-	admonitionWarning:   styleAdmonitionWarning,
+	admonitionCaution:   styleAdmonition,
+	admonitionImportant: styleAdmonition,
+	admonitionNote:      styleAdmonition,
+	admonitionTip:       styleAdmonition,
+	admonitionWarning:   styleAdmonition,
 }
 
 func isAdmonition(line string) bool {
@@ -123,22 +119,7 @@ func isLineDescriptionItem(line string) bool {
 }
 
 func isStyleAdmonition(style int64) bool {
-	if style&styleAdmonitionCaution > 0 {
-		return true
-	}
-	if style&styleAdmonitionImportant > 0 {
-		return true
-	}
-	if style&styleAdmonitionNote > 0 {
-		return true
-	}
-	if style&styleAdmonitionTip > 0 {
-		return true
-	}
-	if style&styleAdmonitionWarning > 0 {
-		return true
-	}
-	return false
+	return style&styleAdmonition > 0
 }
 
 func isTitle(line string) bool {

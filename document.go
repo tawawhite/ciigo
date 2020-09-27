@@ -138,7 +138,7 @@ func (doc *Document) Parse(content []byte) (err error) {
 			if styleKind != styleNone {
 				doc.nodeCurrent.style |= styleKind
 				if isStyleAdmonition(styleKind) {
-					doc.nodeCurrent.setStyleAdmonition(styleName, styleKind)
+					doc.nodeCurrent.setStyleAdmonition(styleName)
 				}
 				line = ""
 				continue
@@ -176,7 +176,8 @@ func (doc *Document) Parse(content []byte) (err error) {
 			continue
 
 		case lineKindAdmonition:
-			doc.nodeCurrent.kind = lineKindAdmonition
+			doc.nodeCurrent.kind = nodeKindParagraph
+			doc.nodeCurrent.style |= styleAdmonition
 			doc.nodeCurrent.parseLineAdmonition(line)
 			line, c = doc.consumeLinesUntil(
 				doc.nodeCurrent,
@@ -884,7 +885,7 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 			if styleKind != styleNone {
 				node.style |= styleKind
 				if isStyleAdmonition(styleKind) {
-					node.setStyleAdmonition(styleName, styleKind)
+					node.setStyleAdmonition(styleName)
 				}
 				line = ""
 				continue
@@ -1026,7 +1027,8 @@ func (doc *Document) parseListBlock() (node *adocNode, line string, c rune) {
 
 		if doc.kind == lineKindAdmonition {
 			node = &adocNode{
-				kind: lineKindAdmonition,
+				kind:  nodeKindParagraph,
+				style: styleAdmonition,
 			}
 			node.parseLineAdmonition(line)
 			line, c = doc.consumeLinesUntil(

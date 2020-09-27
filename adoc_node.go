@@ -389,7 +389,7 @@ func (node *adocNode) debug(n int) {
 	}
 }
 
-func (node *adocNode) setStyleAdmonition(admName string, admKind int64) {
+func (node *adocNode) setStyleAdmonition(admName string) {
 	admName = strings.ToLower(admName)
 	node.classes = append(node.classes, admName)
 	node.rawTerm.WriteString(strings.Title(admName))
@@ -451,8 +451,6 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "BLOCK_VIDEO", node)
 	case nodeKindBlockAudio:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_AUDIO", node)
-	case lineKindAdmonition:
-		err = tmpl.ExecuteTemplate(w, "BEGIN_ADMONITION", node)
 	}
 	if err != nil {
 		return err
@@ -496,8 +494,6 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		} else {
 			err = tmpl.ExecuteTemplate(w, "END_BLOCK_OPEN", node)
 		}
-	case lineKindAdmonition:
-		err = tmpl.ExecuteTemplate(w, "END_ADMONITION", node)
 	}
 	if err != nil {
 		return err
