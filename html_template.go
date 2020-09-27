@@ -315,7 +315,8 @@ Your browser does not support the audio tag.
 <div class="title">{{.Terminology}}</div>
 </td>
 <td class="content">
-{{.Content}}
+{{- with $content := .Content}}
+{{$content}}{{- end}}
 {{- end}}
 {{- define "END_ADMONITION"}}
 </td>

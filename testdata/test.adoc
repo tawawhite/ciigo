@@ -1,5 +1,5 @@
 = _Example `Document` **title**_
-:metadata key: value 
+:metadata key: value
 Author A, Author B
 :unclosed metadata:
 v1.1.1, 18 July 2020
@@ -300,7 +300,7 @@ Permanent storage for operating system and/or
 +
 user files.
 
-=== Mixed with list 
+=== Mixed with list
 
 Dairy::
 * Milk
@@ -492,4 +492,33 @@ IMPORTANT: inside list
 CAUTION: admonition followed by list
 * List item
 
-END OF TEST.
+=== Style admonition
+
+[IMPORTANT]
+.Feeding the Werewolves
+====
+While werewolves are hardy community members, keep in mind the following dietary concerns:
+
+. They are allergic to cinnamon.
+. More than two glasses of orange juice in 24 hours makes them howl in harmony with alarms and sirens.
+. Celery makes them sad.
+====
+
+[TIP]
+Admonition with paragraph.
+
+Is this included in TIP?
+
+[NOTE]
+. With
+. list
+
+[CAUTION]
+--
+  This is open block.
+--
+
+[WARNING]
+  Literal paragraph with admonition.
+
+END OF THE TEST.

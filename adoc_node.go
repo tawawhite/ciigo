@@ -25,28 +25,28 @@ const (
 	nodeKindSectionL4                 // Line started with "====="
 	nodeKindSectionL5                 // Line started with "======"
 	nodeKindParagraph                 // Wrapper.
-	nodeKindLiteralParagraph          // 10: Line start with space
-	nodeKindBlockAdmonition           // "[" ADMONITION "]"
+	nodeKindLiteralParagraph          // Line start with space
 	nodeKindBlockAudio                // "audio::"
+	nodeKindBlockExample              // "===="
 	nodeKindBlockImage                // "image::"
 	nodeKindBlockListingDelimiter     // Block start and end with "----"
 	nodeKindBlockLiteralNamed         // Block start with "[literal]", end with ""
-	nodeKindBlockLiteralDelimiter     // 15: Block start and end with "...."
+	nodeKindBlockLiteralDelimiter     // Block start and end with "...."
 	nodeKindBlockOpen                 // Block wrapped with "--"
 	nodeKindBlockSidebar              // "****"
 	nodeKindBlockVideo                // "video::"
 	nodeKindListOrdered               // Wrapper.
-	nodeKindListOrderedItem           // 20: Line start with ". "
+	nodeKindListOrderedItem           // Line start with ". "
 	nodeKindListUnordered             // Wrapper.
 	nodeKindListUnorderedItem         // Line start with "* "
 	nodeKindListDescription           // Wrapper.
 	nodeKindListDescriptionItem       // Line that has "::" + WSP
-	lineKindAdmonition                // 25:
+	lineKindAdmonition                // "LABEL: WSP"
 	lineKindAttribute                 // Line start with ":"
 	lineKindBlockComment              // Block start and end with "////"
 	lineKindBlockTitle                // Line start with ".<alnum>"
 	lineKindComment                   // Line start with "//"
-	lineKindEmpty                     // 30:
+	lineKindEmpty                     // LF
 	lineKindHorizontalRule            // "'''", "---", "- - -", "***", "* * *"
 	lineKindListContinue              // A single "+" line
 	lineKindPageBreak                 // "<<<"
@@ -389,6 +389,12 @@ func (node *adocNode) debug(n int) {
 	}
 }
 
+func (node *adocNode) setStyleAdmonition(admName string, admKind int64) {
+	admName = strings.ToLower(admName)
+	node.classes = append(node.classes, admName)
+	node.rawTerm.WriteString(strings.Title(admName))
+}
+
 func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 	switch node.kind {
 	case nodeKindPreamble:
@@ -404,7 +410,11 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 	case nodeKindSectionL5:
 		err = tmpl.ExecuteTemplate(w, "BEGIN_SECTION_L5", node)
 	case nodeKindParagraph:
-		err = tmpl.ExecuteTemplate(w, "PARAGRAPH", node)
+		if node.IsStyleAdmonition() {
+			err = tmpl.ExecuteTemplate(w, "BEGIN_ADMONITION", node)
+		} else {
+			err = tmpl.ExecuteTemplate(w, "PARAGRAPH", node)
+		}
 	case nodeKindLiteralParagraph, nodeKindBlockLiteralNamed, nodeKindBlockLiteralDelimiter:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_LITERAL", node)
 	case nodeKindBlockListingDelimiter:
@@ -423,10 +433,20 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "HORIZONTAL_RULE", nil)
 	case lineKindPageBreak:
 		err = tmpl.ExecuteTemplate(w, "PAGE_BREAK", nil)
+	case nodeKindBlockExample:
+		if node.IsStyleAdmonition() {
+			err = tmpl.ExecuteTemplate(w, "BEGIN_ADMONITION", node)
+			err = tmpl.ExecuteTemplate(w, "BLOCK_TITLE", node)
+		}
 	case nodeKindBlockImage:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_IMAGE", node)
 	case nodeKindBlockOpen:
-		err = tmpl.ExecuteTemplate(w, "BEGIN_BLOCK_OPEN", node)
+		if node.IsStyleAdmonition() {
+			err = tmpl.ExecuteTemplate(w, "BEGIN_ADMONITION", node)
+			err = tmpl.ExecuteTemplate(w, "BLOCK_TITLE", node)
+		} else {
+			err = tmpl.ExecuteTemplate(w, "BEGIN_BLOCK_OPEN", node)
+		}
 	case nodeKindBlockVideo:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_VIDEO", node)
 	case nodeKindBlockAudio:
@@ -452,6 +472,10 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "END_SECTION_L1", nil)
 	case nodeKindSectionL2, nodeKindSectionL3, nodeKindSectionL4, nodeKindSectionL5:
 		err = tmpl.ExecuteTemplate(w, "END_SECTION", nil)
+	case nodeKindParagraph:
+		if node.IsStyleAdmonition() {
+			err = tmpl.ExecuteTemplate(w, "END_ADMONITION", node)
+		}
 	case nodeKindListOrderedItem, nodeKindListUnorderedItem:
 		err = tmpl.ExecuteTemplate(w, "END_LIST_ITEM", nil)
 	case nodeKindListDescriptionItem:
@@ -462,8 +486,16 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 		err = tmpl.ExecuteTemplate(w, "END_LIST_UNORDERED", nil)
 	case nodeKindListDescription:
 		err = tmpl.ExecuteTemplate(w, "END_LIST_DESCRIPTION", node)
+	case nodeKindBlockExample:
+		if node.IsStyleAdmonition() {
+			err = tmpl.ExecuteTemplate(w, "END_ADMONITION", node)
+		}
 	case nodeKindBlockOpen:
-		err = tmpl.ExecuteTemplate(w, "END_BLOCK_OPEN", node)
+		if node.IsStyleAdmonition() {
+			err = tmpl.ExecuteTemplate(w, "END_ADMONITION", node)
+		} else {
+			err = tmpl.ExecuteTemplate(w, "END_BLOCK_OPEN", node)
+		}
 	case lineKindAdmonition:
 		err = tmpl.ExecuteTemplate(w, "END_ADMONITION", node)
 	}
@@ -533,6 +565,10 @@ func (node *adocNode) Classes() string {
 
 func (node *adocNode) Content() string {
 	return strings.TrimSpace(node.raw.String())
+}
+
+func (node *adocNode) IsStyleAdmonition() bool {
+	return isStyleAdmonition(node.style)
 }
 
 func (node *adocNode) IsStyleHorizontal() bool {

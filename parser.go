@@ -19,6 +19,63 @@ const (
 	admonitionWarning   = "WARNING"
 )
 
+const (
+	styleNone            int64 = iota
+	styleSectionColophon       = 1 << (iota - 1)
+	styleSectionAbstract
+	styleSectionPreface
+	styleSectionDedication
+	styleSectionPartIntroduction
+	styleSectionAppendix
+	styleSectionGlossary
+	styleSectionBibliography
+	styleSectionIndex
+	styleParagraphLead
+	styleParagraphNormal
+	styleNumberingArabic
+	styleNumberingDecimal
+	styleNumberingLoweralpha
+	styleNumberingUpperalpha
+	styleNumberingLowerroman
+	styleNumberingUpperroman
+	styleNumberingLowergreek
+	styleDescriptionHorizontal
+	styleDescriptionQandA
+	styleAdmonitionCaution
+	styleAdmonitionImportant
+	styleAdmonitionNote
+	styleAdmonitionTip
+	styleAdmonitionWarning
+)
+
+var adocStyles map[string]int64 = map[string]int64{
+	"colophon":          styleSectionColophon,
+	"abstract":          styleSectionAbstract,
+	"preface":           styleSectionPreface,
+	"dedication":        styleSectionDedication,
+	"partintro":         styleSectionPartIntroduction,
+	"appendix":          styleSectionAppendix,
+	"glossary":          styleSectionGlossary,
+	"bibliography":      styleSectionBibliography,
+	"index":             styleSectionIndex,
+	".lead":             styleParagraphLead,
+	".normal":           styleParagraphNormal,
+	"arabic":            styleNumberingArabic,
+	"decimal":           styleNumberingDecimal,
+	"loweralpha":        styleNumberingLoweralpha,
+	"upperalpha":        styleNumberingUpperalpha,
+	"lowerroman":        styleNumberingLowerroman,
+	"upperroman":        styleNumberingUpperroman,
+	"lowergreek":        styleNumberingLowergreek,
+	"horizontal":        styleDescriptionHorizontal,
+	"qanda":             styleDescriptionQandA,
+	admonitionCaution:   styleAdmonitionCaution,
+	admonitionImportant: styleAdmonitionImportant,
+	admonitionNote:      styleAdmonitionNote,
+	admonitionTip:       styleAdmonitionTip,
+	admonitionWarning:   styleAdmonitionWarning,
+}
+
 func isAdmonition(line string) bool {
 	var x int
 	if strings.HasPrefix(line, admonitionCaution) {
@@ -60,6 +117,25 @@ func isLineDescriptionItem(line string) bool {
 	}
 	x = strings.Index(line, "::")
 	if x > 0 {
+		return true
+	}
+	return false
+}
+
+func isStyleAdmonition(style int64) bool {
+	if style&styleAdmonitionCaution > 0 {
+		return true
+	}
+	if style&styleAdmonitionImportant > 0 {
+		return true
+	}
+	if style&styleAdmonitionNote > 0 {
+		return true
+	}
+	if style&styleAdmonitionTip > 0 {
+		return true
+	}
+	if style&styleAdmonitionWarning > 0 {
 		return true
 	}
 	return false
@@ -138,6 +214,26 @@ func parseBlockAttribute(in string) (out []string) {
 		}
 	}
 	return out
+}
+
+//
+// parseStyle parse line that start with "[" and end with "]".
+//
+func parseStyle(line string) (styleName string, styleKind int64) {
+	line = strings.Trim(line, "[]")
+	parts := strings.Split(line, ",")
+	styleName = strings.Trim(parts[0], "\"")
+
+	// Check for admonition label first...
+	styleKind = adocStyles[styleName]
+	if styleKind > 0 {
+		return styleName, styleKind
+	}
+
+	styleName = strings.ToLower(styleName)
+	styleKind = adocStyles[styleName]
+
+	return styleName, styleKind
 }
 
 //
@@ -228,6 +324,10 @@ func whatKindOfLine(line string) (kind int, spaces, got string) {
 			return kind, spaces, line
 		}
 	} else if line[0] == '=' {
+		if line == "====" {
+			return nodeKindBlockExample, spaces, line
+		}
+
 		subs := strings.Fields(line)
 		switch subs[0] {
 		case "==":

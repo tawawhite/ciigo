@@ -134,9 +134,12 @@ func (doc *Document) Parse(content []byte) (err error) {
 			line = ""
 			continue
 		case lineKindStyle:
-			style := parseStyle(line)
-			if style != styleNone {
-				doc.nodeCurrent.style |= style
+			styleName, styleKind := parseStyle(line)
+			if styleKind != styleNone {
+				doc.nodeCurrent.style |= styleKind
+				if isStyleAdmonition(styleKind) {
+					doc.nodeCurrent.setStyleAdmonition(styleName, styleKind)
+				}
 				line = ""
 				continue
 			}
@@ -217,17 +220,33 @@ func (doc *Document) Parse(content []byte) (err error) {
 			continue
 
 		case nodeKindLiteralParagraph:
-			doc.nodeCurrent.kind = doc.kind
-			doc.nodeCurrent.raw.WriteString(spaces + line)
-			doc.nodeCurrent.raw.WriteByte('\n')
-			doc.consumeLinesUntil(
-				doc.nodeCurrent,
-				lineKindEmpty,
-				[]int{
-					nodeKindBlockListingDelimiter,
-					nodeKindBlockLiteralNamed,
-					nodeKindBlockLiteralDelimiter,
-				})
+			if doc.nodeCurrent.kind == nodeKindUnknown &&
+				doc.nodeCurrent.IsStyleAdmonition() {
+				doc.nodeCurrent.kind = nodeKindParagraph
+				doc.nodeCurrent.raw.WriteString(spaces + line)
+				doc.nodeCurrent.raw.WriteByte('\n')
+				line, c = doc.consumeLinesUntil(
+					doc.nodeCurrent,
+					lineKindEmpty,
+					[]int{
+						nodeKindBlockListingDelimiter,
+						nodeKindBlockLiteralDelimiter,
+						nodeKindBlockLiteralNamed,
+						lineKindListContinue,
+					})
+			} else {
+				doc.nodeCurrent.kind = doc.kind
+				doc.nodeCurrent.raw.WriteString(spaces + line)
+				doc.nodeCurrent.raw.WriteByte('\n')
+				line, c = doc.consumeLinesUntil(
+					doc.nodeCurrent,
+					lineKindEmpty,
+					[]int{
+						nodeKindBlockListingDelimiter,
+						nodeKindBlockLiteralDelimiter,
+						nodeKindBlockLiteralNamed,
+					})
+			}
 			doc.terminateCurrentNode()
 
 		case nodeKindBlockLiteralDelimiter:
@@ -253,7 +272,8 @@ func (doc *Document) Parse(content []byte) (err error) {
 			doc.nodeParent.debug(1)
 
 		case nodeKindListOrderedItem:
-			line, c = doc.parseListOrdered(doc.nodeParent, line)
+			line, c = doc.parseListOrdered(doc.nodeParent,
+				doc.nodeCurrent.rawTitle, line)
 			doc.terminateCurrentNode()
 			continue
 
@@ -279,9 +299,10 @@ func (doc *Document) Parse(content []byte) (err error) {
 				doc.nodeCurrent.raw.WriteString("image::" + line)
 				doc.nodeCurrent.raw.WriteByte('\n')
 			}
-		case nodeKindBlockOpen:
+
+		case nodeKindBlockOpen, nodeKindBlockExample:
 			doc.nodeCurrent.kind = doc.kind
-			doc.parseBlockOpen(doc.nodeCurrent)
+			doc.parseBlock(doc.nodeCurrent, doc.kind)
 			doc.terminateCurrentNode()
 
 		case nodeKindBlockVideo:
@@ -322,12 +343,12 @@ func (doc *Document) Parse(content []byte) (err error) {
 // list-item.
 // On success it will return non-empty line and terminator character.
 //
-func (doc *Document) parseListOrdered(parent *adocNode, line string) (
+func (doc *Document) parseListOrdered(parent *adocNode, title, line string) (
 	got string, c rune,
 ) {
 	list := &adocNode{
 		kind:     nodeKindListOrdered,
-		rawTitle: doc.nodeCurrent.rawTitle,
+		rawTitle: title,
 	}
 	listItem := &adocNode{
 		kind: nodeKindListOrderedItem,
@@ -368,6 +389,11 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 			// Keep going, maybe next line is still a list.
 			continue
 		}
+		if doc.kind == lineKindStyle {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
 		if doc.kind == nodeKindListOrderedItem {
 			node := &adocNode{
 				kind: nodeKindListOrderedItem,
@@ -392,7 +418,7 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 				parentListItem = parentListItem.parent
 			}
 
-			line, c = doc.parseListOrdered(listItem, line)
+			line, c = doc.parseListOrdered(listItem, "", line)
 			continue
 		}
 		if doc.kind == nodeKindListUnorderedItem {
@@ -460,7 +486,8 @@ func (doc *Document) parseListOrdered(parent *adocNode, line string) (
 			listItem.addChild(node)
 			continue
 		}
-		if doc.kind == nodeKindBlockListingDelimiter {
+		if doc.kind == nodeKindBlockListingDelimiter ||
+			doc.kind == nodeKindBlockExample {
 			break
 		}
 		if doc.kind == nodeKindSectionL1 ||
@@ -527,6 +554,12 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 			// Keep going, maybe next line is still a list.
 			continue
 		}
+		if doc.kind == lineKindStyle {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
+
 		if doc.kind == nodeKindListOrderedItem {
 			node := &adocNode{
 				kind: nodeKindListOrderedItem,
@@ -545,7 +578,7 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 				parentListItem = parentListItem.parent
 			}
 
-			line, c = doc.parseListOrdered(listItem, line)
+			line, c = doc.parseListOrdered(listItem, "", line)
 			continue
 		}
 
@@ -620,7 +653,8 @@ func (doc *Document) parseListUnordered(parent *adocNode, line string) (
 			listItem.addChild(node)
 			continue
 		}
-		if doc.kind == nodeKindBlockListingDelimiter {
+		if doc.kind == nodeKindBlockListingDelimiter ||
+			doc.kind == nodeKindBlockExample {
 			break
 		}
 		if doc.kind == nodeKindSectionL1 ||
@@ -687,8 +721,14 @@ func (doc *Document) parseListDescription(parent *adocNode, line string) (
 			// Keep going, maybe next line is still a list.
 			continue
 		}
+		if doc.kind == lineKindStyle {
+			if doc.prevKind == lineKindEmpty {
+				break
+			}
+		}
+
 		if doc.kind == nodeKindListOrderedItem {
-			line, c = doc.parseListOrdered(listItem, line)
+			line, c = doc.parseListOrdered(listItem, "", line)
 			continue
 		}
 		if doc.kind == nodeKindListUnorderedItem {
@@ -740,7 +780,8 @@ func (doc *Document) parseListDescription(parent *adocNode, line string) (
 			listItem.addChild(node)
 			continue
 		}
-		if doc.kind == nodeKindBlockListingDelimiter {
+		if doc.kind == nodeKindBlockListingDelimiter ||
+			doc.kind == nodeKindBlockExample {
 			break
 		}
 		if doc.kind == nodeKindSectionL1 ||
@@ -760,7 +801,7 @@ func (doc *Document) parseListDescription(parent *adocNode, line string) (
 	return line, c
 }
 
-func (doc *Document) parseBlockOpen(parent *adocNode) {
+func (doc *Document) parseBlock(parent *adocNode, term int) {
 	node := &adocNode{
 		kind: nodeKindUnknown,
 	}
@@ -824,7 +865,7 @@ func (doc *Document) parseBlockOpen(parent *adocNode) {
 					node,
 					lineKindEmpty,
 					[]int{
-						nodeKindBlockOpen,
+						term,
 						nodeKindBlockListingDelimiter,
 						nodeKindBlockLiteralDelimiter,
 						nodeKindBlockLiteralNamed,
@@ -839,9 +880,12 @@ func (doc *Document) parseBlockOpen(parent *adocNode) {
 			continue
 
 		case lineKindStyle:
-			style := parseStyle(line)
-			if style != styleNone {
-				node.style |= style
+			styleName, styleKind := parseStyle(line)
+			if styleKind != styleNone {
+				node.style |= styleKind
+				if isStyleAdmonition(styleKind) {
+					node.setStyleAdmonition(styleName, styleKind)
+				}
 				line = ""
 				continue
 			}
@@ -863,7 +907,7 @@ func (doc *Document) parseBlockOpen(parent *adocNode) {
 					node,
 					lineKindEmpty,
 					[]int{
-						nodeKindBlockOpen,
+						term,
 						nodeKindBlockListingDelimiter,
 						nodeKindBlockLiteralDelimiter,
 						nodeKindBlockLiteralNamed,
@@ -886,16 +930,18 @@ func (doc *Document) parseBlockOpen(parent *adocNode) {
 			node.kind = doc.kind
 			node.raw.WriteString(spaces + line)
 			node.raw.WriteByte('\n')
-			doc.consumeLinesUntil(
+			line, c = doc.consumeLinesUntil(
 				node,
 				lineKindEmpty,
 				[]int{
+					term,
 					nodeKindBlockListingDelimiter,
 					nodeKindBlockLiteralNamed,
 					nodeKindBlockLiteralDelimiter,
 				})
 			parent.addChild(node)
 			node = &adocNode{}
+			continue
 
 		case nodeKindBlockLiteralDelimiter:
 			node.kind = doc.kind
@@ -916,7 +962,7 @@ func (doc *Document) parseBlockOpen(parent *adocNode) {
 			node = &adocNode{}
 
 		case nodeKindListOrderedItem:
-			line, c = doc.parseListOrdered(parent, line)
+			line, c = doc.parseListOrdered(parent, "", line)
 			parent.addChild(node)
 			node = &adocNode{}
 			continue
@@ -951,7 +997,7 @@ func (doc *Document) parseBlockOpen(parent *adocNode) {
 					node,
 					lineKindEmpty,
 					[]int{
-						nodeKindBlockOpen,
+						term,
 						nodeKindBlockListingDelimiter,
 						nodeKindBlockLiteralDelimiter,
 						nodeKindBlockLiteralNamed,
@@ -960,7 +1006,7 @@ func (doc *Document) parseBlockOpen(parent *adocNode) {
 				parent.addChild(node)
 				node = &adocNode{}
 			}
-		case nodeKindBlockOpen:
+		case term:
 			return
 		}
 		line = ""
