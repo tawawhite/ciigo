@@ -99,6 +99,8 @@ type adocNode struct {
 	Height   string
 	Attrs    map[string]string
 	Opts     map[string]string
+	key      string
+	value    string
 
 	parent *adocNode
 	child  *adocNode
@@ -395,8 +397,10 @@ func (node *adocNode) setStyleAdmonition(admName string) {
 	node.rawTerm.WriteString(strings.Title(admName))
 }
 
-func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
+func (node *adocNode) toHTML(doc *Document, tmpl *template.Template, w io.Writer) (err error) {
 	switch node.kind {
+	case lineKindAttribute:
+		doc.attributes[node.key] = node.value
 	case nodeKindPreamble:
 		err = tmpl.ExecuteTemplate(w, "BEGIN_PREAMBLE", nil)
 	case nodeKindSectionL1:
@@ -457,7 +461,7 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 	}
 
 	if node.child != nil {
-		err = node.child.toHTML(tmpl, w)
+		err = node.child.toHTML(doc, tmpl, w)
 		if err != nil {
 			return err
 		}
@@ -500,7 +504,7 @@ func (node *adocNode) toHTML(tmpl *template.Template, w io.Writer) (err error) {
 	}
 
 	if node.next != nil {
-		err = node.next.toHTML(tmpl, w)
+		err = node.next.toHTML(doc, tmpl, w)
 		if err != nil {
 			return err
 		}

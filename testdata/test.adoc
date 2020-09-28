@@ -521,4 +521,11 @@ Is this included in TIP?
 [WARNING]
   Literal paragraph with admonition.
 
+===  Icons
+
+:icons: font
+
+WARNING: Wolpertingers are known to nest in server racks.
+Enter at your own risk.
+
 END OF THE TEST.

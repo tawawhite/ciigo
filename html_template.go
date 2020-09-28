@@ -6,15 +6,24 @@ package ciigo
 
 import (
 	"html/template"
+	"strings"
 )
 
-func newHTMLTemplate() (tmpl *template.Template, err error) {
+func (doc *Document) createHTMLTemplate() (tmpl *template.Template, err error) {
 	imageCounter := 0
 
 	tmpl, err = template.New("HTML").Funcs(map[string]interface{}{
+		// docAttribute access the global document attributes using
+		// specific key.
+		"docAttribute": func(key string) string {
+			return doc.attributes[key]
+		},
 		"imageCounter": func() int {
 			imageCounter++
 			return imageCounter
+		},
+		"toLower": func(s string) string {
+			return strings.ToLower(strings.TrimSpace(s))
 		},
 	}).Parse(`
 {{- define "BEGIN" -}}
@@ -312,11 +321,16 @@ Your browser does not support the audio tag.
 <table>
 <tr>
 <td class="icon">
+	{{- if eq (docAttribute "icons") "font"}}
+<i class="fa icon-{{toLower .Classes}}" title="{{.Terminology}}"></i>
+	{{- else}}
 <div class="title">{{.Terminology}}</div>
+	{{- end}}
 </td>
 <td class="content">
-{{- with $content := .Content}}
-{{$content}}{{- end}}
+	{{- with $content := .Content}}
+{{$content}}
+	{{- end}}
 {{- end}}
 {{- define "END_ADMONITION"}}
 </td>

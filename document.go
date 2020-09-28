@@ -126,8 +126,14 @@ func (doc *Document) Parse(content []byte) (err error) {
 			line = ""
 			continue
 		case lineKindAttribute:
-			if doc.parseAttribute(line, true) {
+			key, value := doc.parseAttribute(line, true)
+			if len(key) > 0 {
 				doc.terminateCurrentNode()
+				doc.nodeParent.addChild(&adocNode{
+					kind:  lineKindAttribute,
+					key:   key,
+					value: value,
+				})
 			} else if doc.nodeCurrent.kind != nodeKindUnknown {
 				doc.nodeCurrent.raw.WriteString(line)
 			}
@@ -854,7 +860,13 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 			continue
 
 		case lineKindAttribute:
-			if doc.parseAttribute(line, true) {
+			key, value := doc.parseAttribute(line, true)
+			if len(key) > 0 {
+				parent.addChild(&adocNode{
+					kind:  doc.kind,
+					key:   key,
+					value: value,
+				})
 				line = ""
 				continue
 			}
@@ -1202,7 +1214,9 @@ func (doc *Document) parseHeader() (spaces, line string, c rune) {
 			continue
 		}
 		if line[0] == ':' {
-			if doc.parseAttribute(line, false) {
+			key, value := doc.parseAttribute(line, false)
+			if len(key) > 0 {
+				doc.attributes[key] = value
 				continue
 			}
 			if state != stateTitle {
@@ -1238,7 +1252,8 @@ func (doc *Document) parseHeader() (spaces, line string, c rune) {
 }
 
 //
-// parseAttribute parse document attribute and return true if its valid.
+// parseAttribute parse document attribute and return its key and optional
+// value.
 //
 //	DOC_ATTRIBUTE  = ":" DOC_ATTR_KEY ":" *STRING LF
 //
@@ -1249,34 +1264,32 @@ func (doc *Document) parseHeader() (spaces, line string, c rune) {
 //
 //	META_KEY       = 1META_KEY_CHAR *(META_KEY_CHAR | '-')
 //
-func (doc *Document) parseAttribute(line string, strict bool) bool {
-	key := make([]byte, 0, len(line))
+func (doc *Document) parseAttribute(line string, strict bool) (key, value string) {
+	var sb strings.Builder
 
 	if !(ascii.IsAlnum(line[1]) || line[1] == '_') {
-		return false
+		return "", ""
 	}
 
-	key = append(key, line[1])
+	sb.WriteByte(line[1])
 	x := 2
 	for ; x < len(line); x++ {
 		if line[x] == ':' {
 			break
 		}
 		if ascii.IsAlnum(line[x]) || line[x] == '_' || line[x] == '-' {
-			key = append(key, line[x])
+			sb.WriteByte(line[x])
 			continue
 		}
 		if strict {
-			return false
+			return "", ""
 		}
 	}
 	if x == len(line) {
-		return false
+		return "", ""
 	}
 
-	doc.attributes[string(key)] = strings.TrimSpace(line[x+1:])
-
-	return true
+	return sb.String(), strings.TrimSpace(line[x+1:])
 }
 
 //
@@ -1318,7 +1331,7 @@ func (doc *Document) parseIgnoreCommentBlock() {
 // ToHTML convert the asciidoc to HTML.
 //
 func (doc *Document) ToHTML(w io.Writer) (err error) {
-	tmpl, err := newHTMLTemplate()
+	tmpl, err := doc.createHTMLTemplate()
 	if err != nil {
 		return err
 	}
@@ -1334,13 +1347,13 @@ func (doc *Document) ToHTML(w io.Writer) (err error) {
 	}
 
 	if doc.content.child != nil {
-		err = doc.content.child.toHTML(tmpl, w)
+		err = doc.content.child.toHTML(doc, tmpl, w)
 		if err != nil {
 			return err
 		}
 	}
 	if doc.content.next != nil {
-		err = doc.content.next.toHTML(tmpl, w)
+		err = doc.content.next.toHTML(doc, tmpl, w)
 		if err != nil {
 			return err
 		}
