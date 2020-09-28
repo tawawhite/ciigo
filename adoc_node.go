@@ -56,6 +56,7 @@ const (
 )
 
 const (
+	attrNameAlt         = "alt"
 	attrNameEnd         = "end"
 	attrNameHeight      = "height"
 	attrNameLang        = "lang"
@@ -90,13 +91,10 @@ type adocNode struct {
 	kind     int
 	level    int          // The number of dot for ordered list, or star '*' for unordered list.
 	raw      bytes.Buffer // unparsed content of node.
-	rawTerm  bytes.Buffer
+	rawLabel bytes.Buffer
 	rawTitle string
 	style    int64
 	classes  []string
-	Alt      string
-	Width    string
-	Height   string
 	Attrs    map[string]string
 	Opts     map[string]string
 	key      string
@@ -159,7 +157,7 @@ func (node *adocNode) parseListDescription(line string) {
 		if c == ':' {
 			break
 		}
-		node.rawTerm.WriteRune(c)
+		node.rawLabel.WriteRune(c)
 	}
 	line = line[x:]
 	for x, c = range line {
@@ -200,20 +198,24 @@ func (node *adocNode) parseImage(line string) bool {
 	node.raw.WriteString(name)
 
 	attrs := strings.Split(line[attrBegin+1:attrEnd], ",")
+	if node.Attrs == nil {
+		node.Attrs = make(map[string]string)
+	}
 	for x, attr := range attrs {
 		switch x {
 		case 0:
-			node.Alt = strings.TrimSpace(attrs[0])
-			if len(node.Alt) == 0 {
+			alt := strings.TrimSpace(attrs[0])
+			if len(alt) == 0 {
 				dot := strings.IndexByte(name, '.')
 				if dot > 0 {
-					node.Alt = name[:dot]
+					alt = name[:dot]
 				}
 			}
+			node.Attrs[attrNameAlt] = alt
 		case 1:
-			node.Width = attrs[1]
+			node.Attrs[attrNameWidth] = attrs[1]
 		case 2:
-			node.Height = attrs[2]
+			node.Attrs[attrNameHeight] = attrs[2]
 		default:
 			kv := strings.SplitN(attr, "=", 2)
 			if len(kv) != 2 {
@@ -339,11 +341,8 @@ func (node *adocNode) parseVideo(line string) bool {
 		}
 
 		switch key {
-		case attrNameWidth:
-			node.Width = val
-		case attrNameHeight:
-			node.Height = val
-		case attrNameOptions, attrNamePoster, attrNameStart,
+		case attrNameWidth, attrNameHeight,
+			attrNameOptions, attrNamePoster, attrNameStart,
 			attrNameEnd, attrNameTheme, attrNameLang:
 			node.Attrs[key] = val
 		}
@@ -355,7 +354,7 @@ func (node *adocNode) parseLineAdmonition(line string) {
 	sep := strings.IndexByte(line, ':')
 	class := strings.ToLower(line[:sep])
 	node.classes = append(node.classes, class)
-	node.rawTerm.WriteString(strings.Title(class))
+	node.rawLabel.WriteString(strings.Title(class))
 	line = strings.TrimSpace(line[sep+1:])
 	node.raw.WriteString(line)
 	node.raw.WriteByte('\n')
@@ -394,7 +393,7 @@ func (node *adocNode) debug(n int) {
 func (node *adocNode) setStyleAdmonition(admName string) {
 	admName = strings.ToLower(admName)
 	node.classes = append(node.classes, admName)
-	node.rawTerm.WriteString(strings.Title(admName))
+	node.rawLabel.WriteString(strings.Title(admName))
 }
 
 func (node *adocNode) toHTML(doc *Document, tmpl *template.Template, w io.Writer) (err error) {
@@ -579,8 +578,8 @@ func (node *adocNode) IsStyleQandA() bool {
 	return node.style&styleDescriptionQandA > 0
 }
 
-func (node *adocNode) Terminology() string {
-	return node.rawTerm.String()
+func (node *adocNode) Label() string {
+	return node.rawLabel.String()
 }
 
 func (node *adocNode) Title() string {

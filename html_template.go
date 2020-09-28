@@ -215,15 +215,15 @@ Last updated {{.LastUpdated}}
 {{- define "BEGIN_LIST_DESCRIPTION_ITEM"}}
 	{{- if .IsStyleQandA}}
 <li>
-<p><em>{{.Terminology}}</em></p>
+<p><em>{{.Label}}</em></p>
 	{{- else if .IsStyleHorizontal}}
 <tr>
 <td class="hdlist1">
-{{.Terminology}}
+{{.Label}}
 </td>
 <td class="hdlist2">
 	{{- else}}
-<dt class="hdlist1">{{- .Terminology -}}</dt>
+<dt class="hdlist1">{{- .Label -}}</dt>
 <dd>
 	{{- end}}
 	{{- with $content := .Content}}
@@ -252,9 +252,9 @@ Last updated {{.LastUpdated}}
 {{- define "BLOCK_IMAGE"}}
 <div class="imageblock {{- .Classes}}">
 <div class="content">
-<img src="{{.Content}}" alt="{{.Alt}}"
-	{{- if .Width}} width="{{.Width}}"{{end}}
-	{{- if .Height}} height="{{.Height}}"{{end}}>
+<img src="{{.Content}}" alt="{{.Attrs.alt}}"
+	{{- with $w := .Attrs.width}} width="{{$w}}"{{end}}
+	{{- with $h := .Attrs.height}} height="{{$h}}"{{end}}>
 </div>
 {{- with $caption := .Title}}
 <div class="title">Figure {{imageCounter}}. {{$caption}}</div>
@@ -279,17 +279,17 @@ Last updated {{.LastUpdated}}
 <div class="content">
 	{{- if .Attrs.youtube}}
 <iframe
-		{{- if .Width}} width="{{.Width}}" {{- end}}
-		{{- if .Height}} height="{{.Height}}" {{- end}} src="{{.GetVideoSource}}" frameborder="0"
+		{{- with $w := .Attrs.width}} width="{{$w}}" {{- end}}
+		{{- with $h := .Attrs.height}} height="{{$h}}" {{- end}} src="{{.GetVideoSource}}" frameborder="0"
 		{{- if not .Attrs.nofullscreen}} allowfullscreen{{end}}></iframe>
 	{{- else if .Attrs.vimeo}}
 <iframe
-		{{- if .Width}} width="{{.Width}}" {{- end}}
-		{{- if .Height}} height="{{.Height}}" {{- end }} src="{{.GetVideoSource}}" frameborder="0"></iframe>
+		{{- with $w := .Attrs.width}} width="{{$w}}" {{- end}}
+		{{- with $h := .Attrs.height}} height="{{$h}}" {{- end }} src="{{.GetVideoSource}}" frameborder="0"></iframe>
 	{{- else}}
 <video src="{{.GetVideoSource}}"
-		{{- if .Width}} width="{{.Width}}"{{- end}}
-		{{- if .Height}} height="{{.Height}}"{{- end -}}
+		{{- with $w := .Attrs.width}} width="{{$w}}" {{- end}}
+		{{- with $h := .Attrs.height}} height="{{$h}}" {{- end -}}
 		{{- if .Attrs.poster}} poster="{{.Attrs.poster}}"{{end -}}
 		{{- if not .Attrs.nocontrols}} controls{{end -}}
 		{{- if .Attrs.autoplay}} autoplay{{end -}}
@@ -322,9 +322,9 @@ Your browser does not support the audio tag.
 <tr>
 <td class="icon">
 	{{- if eq (docAttribute "icons") "font"}}
-<i class="fa icon-{{toLower .Classes}}" title="{{.Terminology}}"></i>
+<i class="fa icon-{{toLower .Classes}}" title="{{.Label}}"></i>
 	{{- else}}
-<div class="title">{{.Terminology}}</div>
+<div class="title">{{.Label}}</div>
 	{{- end}}
 </td>
 <td class="content">
