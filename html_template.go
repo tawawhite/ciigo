@@ -339,6 +339,16 @@ Your browser does not support the audio tag.
 </div>
 {{- end}}
 {{/*----------------------------------------------------------------------*/}}
+{{- define "BEGIN_SIDEBAR"}}
+<div class="sidebarblock {{- .Classes}}">
+<div class="content">
+{{- template "BLOCK_TITLE" .}}
+{{- end}}
+{{- define "END_SIDEBAR"}}
+</div>
+</div>
+{{- end}}
+{{/*----------------------------------------------------------------------*/}}
 `)
 	return tmpl, err
 }

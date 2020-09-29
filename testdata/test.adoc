@@ -528,4 +528,20 @@ Is this included in TIP?
 WARNING: Wolpertingers are known to nest in server racks.
 Enter at your own risk.
 
+
+==  Sidebar
+
+.AsciiDoc history
+****
+AsciiDoc was first released in Nov 2002 by Stuart Rackham.
+It was designed from the start to be a shorthand syntax
+for producing professional documents like DocBook and LaTeX.
+****
+
+.Sidebar with list
+****
+. List
+. Item
+****
+
 END OF THE TEST.

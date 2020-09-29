@@ -450,6 +450,8 @@ func (node *adocNode) toHTML(doc *Document, tmpl *template.Template, w io.Writer
 		} else {
 			err = tmpl.ExecuteTemplate(w, "BEGIN_BLOCK_OPEN", node)
 		}
+	case nodeKindBlockSidebar:
+		err = tmpl.ExecuteTemplate(w, "BEGIN_SIDEBAR", node)
 	case nodeKindBlockVideo:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_VIDEO", node)
 	case nodeKindBlockAudio:
@@ -497,6 +499,8 @@ func (node *adocNode) toHTML(doc *Document, tmpl *template.Template, w io.Writer
 		} else {
 			err = tmpl.ExecuteTemplate(w, "END_BLOCK_OPEN", node)
 		}
+	case nodeKindBlockSidebar:
+		err = tmpl.ExecuteTemplate(w, "END_SIDEBAR", node)
 	}
 	if err != nil {
 		return err
