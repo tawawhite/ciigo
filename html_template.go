@@ -11,12 +11,17 @@ import (
 
 func (doc *Document) createHTMLTemplate() (tmpl *template.Template, err error) {
 	imageCounter := 0
+	exampleCounter := 0
 
 	tmpl, err = template.New("HTML").Funcs(map[string]interface{}{
 		// docAttribute access the global document attributes using
 		// specific key.
 		"docAttribute": func(key string) string {
 			return doc.attributes[key]
+		},
+		"exampleCounter": func() int {
+			exampleCounter++
+			return exampleCounter
 		},
 		"imageCounter": func() int {
 			imageCounter++
@@ -345,6 +350,18 @@ Your browser does not support the audio tag.
 {{- template "BLOCK_TITLE" .}}
 {{- end}}
 {{- define "END_SIDEBAR"}}
+</div>
+</div>
+{{- end}}
+{{/*----------------------------------------------------------------------*/}}
+{{- define "BEGIN_EXAMPLE"}}
+<div class="exampleblock {{- .Classes}}">
+{{- with $caption := .Title}}
+<div class="title">Example {{exampleCounter}}. {{$caption}}</div>
+{{- end}}
+<div class="content">
+{{- end}}
+{{- define "END_EXAMPLE"}}
 </div>
 </div>
 {{- end}}

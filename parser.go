@@ -42,6 +42,7 @@ const (
 	styleDescriptionHorizontal
 	styleDescriptionQandA
 	styleAdmonition
+	styleBlockListing
 )
 
 var adocStyles map[string]int64 = map[string]int64{
@@ -70,6 +71,7 @@ var adocStyles map[string]int64 = map[string]int64{
 	admonitionNote:      styleAdmonition,
 	admonitionTip:       styleAdmonition,
 	admonitionWarning:   styleAdmonition,
+	"listing":           styleBlockListing,
 }
 
 func isAdmonition(line string) bool {

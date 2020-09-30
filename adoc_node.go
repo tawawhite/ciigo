@@ -25,12 +25,12 @@ const (
 	nodeKindSectionL4                 // Line started with "====="
 	nodeKindSectionL5                 // Line started with "======"
 	nodeKindParagraph                 // Wrapper.
-	nodeKindLiteralParagraph          // Line start with space
+	nodeKindLiteralParagraph          // 10: Line start with space
 	nodeKindBlockAudio                // "audio::"
 	nodeKindBlockExample              // "===="
 	nodeKindBlockImage                // "image::"
 	nodeKindBlockListingDelimiter     // Block start and end with "----"
-	nodeKindBlockLiteralNamed         // Block start with "[literal]", end with ""
+	nodeKindBlockLiteralNamed         // 15: Block start with "[literal]", end with ""
 	nodeKindBlockLiteralDelimiter     // Block start and end with "...."
 	nodeKindBlockOpen                 // Block wrapped with "--"
 	nodeKindBlockSidebar              // "****"
@@ -418,8 +418,14 @@ func (node *adocNode) toHTML(doc *Document, tmpl *template.Template, w io.Writer
 		} else {
 			err = tmpl.ExecuteTemplate(w, "PARAGRAPH", node)
 		}
-	case nodeKindLiteralParagraph, nodeKindBlockLiteralNamed, nodeKindBlockLiteralDelimiter:
+	case nodeKindLiteralParagraph, nodeKindBlockLiteralNamed:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_LITERAL", node)
+	case nodeKindBlockLiteralDelimiter:
+		if node.IsStyleListing() {
+			err = tmpl.ExecuteTemplate(w, "BLOCK_LISTING", node)
+		} else {
+			err = tmpl.ExecuteTemplate(w, "BLOCK_LITERAL", node)
+		}
 	case nodeKindBlockListingDelimiter:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_LISTING", node)
 	case nodeKindListOrdered:
@@ -440,6 +446,8 @@ func (node *adocNode) toHTML(doc *Document, tmpl *template.Template, w io.Writer
 		if node.IsStyleAdmonition() {
 			err = tmpl.ExecuteTemplate(w, "BEGIN_ADMONITION", node)
 			err = tmpl.ExecuteTemplate(w, "BLOCK_TITLE", node)
+		} else {
+			err = tmpl.ExecuteTemplate(w, "BEGIN_EXAMPLE", node)
 		}
 	case nodeKindBlockImage:
 		err = tmpl.ExecuteTemplate(w, "BLOCK_IMAGE", node)
@@ -492,6 +500,8 @@ func (node *adocNode) toHTML(doc *Document, tmpl *template.Template, w io.Writer
 	case nodeKindBlockExample:
 		if node.IsStyleAdmonition() {
 			err = tmpl.ExecuteTemplate(w, "END_ADMONITION", node)
+		} else {
+			err = tmpl.ExecuteTemplate(w, "END_EXAMPLE", node)
 		}
 	case nodeKindBlockOpen:
 		if node.IsStyleAdmonition() {
@@ -576,6 +586,10 @@ func (node *adocNode) IsStyleAdmonition() bool {
 
 func (node *adocNode) IsStyleHorizontal() bool {
 	return node.style&styleDescriptionHorizontal > 0
+}
+
+func (node *adocNode) IsStyleListing() bool {
+	return node.style&styleBlockListing > 0
 }
 
 func (node *adocNode) IsStyleQandA() bool {

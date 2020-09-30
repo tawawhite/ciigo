@@ -544,4 +544,23 @@ for producing professional documents like DocBook and LaTeX.
 . Item
 ****
 
+
+==  Example
+
+.Sample document
+====
+Here's a sample AsciiDoc document:
+
+[listing]
+....
+= Title of Document
+Doc Writer
+:toc:
+
+This guide provides...
+....
+
+The document header is useful, but not required.
+====
+
 END OF THE TEST.
