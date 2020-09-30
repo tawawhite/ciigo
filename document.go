@@ -62,10 +62,7 @@ func Open(file string) (doc *Document, err error) {
 		},
 	}
 
-	err = doc.Parse(raw)
-	if err != nil {
-		return nil, err
-	}
+	doc.Parse(raw)
 
 	return doc, nil
 }
@@ -73,295 +70,15 @@ func Open(file string) (doc *Document, err error) {
 //
 // Parse the content of asciidoc document.
 //
-func (doc *Document) Parse(content []byte) (err error) {
+func (doc *Document) Parse(content []byte) {
 	doc.p = parser.New(string(content), "\n")
 
-	spaces, line, c := doc.parseHeader()
-
+	_, _, _ = doc.parseHeader()
 	parent := &adocNode{
 		kind: nodeKindPreamble,
 	}
 	doc.content.addChild(parent)
-	node := new(adocNode)
-
-	for {
-		if len(line) == 0 {
-			spaces, line, c = doc.line()
-			if len(line) == 0 && c == 0 {
-				return nil
-			}
-		}
-
-		switch doc.kind {
-		case lineKindEmpty:
-			continue
-		case lineKindBlockComment:
-			doc.parseIgnoreCommentBlock()
-			line = ""
-			continue
-		case lineKindComment:
-			line = ""
-			continue
-		case lineKindHorizontalRule:
-			node.kind = doc.kind
-			parent.addChild(node)
-			node = new(adocNode)
-			line = ""
-			continue
-		case lineKindPageBreak:
-			node.kind = doc.kind
-			parent.addChild(node)
-			node = new(adocNode)
-			line = ""
-			continue
-		case lineKindAttribute:
-			key, value := doc.parseAttribute(line, false)
-			if len(key) > 0 {
-				parent.addChild(&adocNode{
-					kind:  lineKindAttribute,
-					key:   key,
-					value: value,
-				})
-				line = ""
-			} else {
-				node.kind = nodeKindParagraph
-				node.raw.WriteString(line)
-				node.raw.WriteByte('\n')
-				line, c = doc.consumeLinesUntil(
-					node,
-					lineKindEmpty,
-					[]int{
-						nodeKindBlockListingDelimiter,
-						nodeKindBlockLiteralDelimiter,
-						nodeKindBlockLiteralNamed,
-						lineKindListContinue,
-					})
-
-			}
-			continue
-		case lineKindStyle:
-			styleName, styleKind := parseStyle(line)
-			if styleKind != styleNone {
-				node.style |= styleKind
-				if isStyleAdmonition(styleKind) {
-					node.setStyleAdmonition(styleName)
-				}
-				line = ""
-				continue
-			}
-
-		case lineKindStyleClass:
-			node.parseStyleClass(line)
-			line = ""
-			continue
-
-		case lineKindText, lineKindListContinue:
-			node.kind = nodeKindParagraph
-			node.raw.WriteString(line)
-			node.raw.WriteByte('\n')
-			line, c = doc.consumeLinesUntil(
-				node,
-				lineKindEmpty,
-				[]int{
-					nodeKindBlockListingDelimiter,
-					nodeKindBlockLiteralDelimiter,
-					nodeKindBlockLiteralNamed,
-					lineKindListContinue,
-				})
-			parent.addChild(node)
-			node = new(adocNode)
-			continue
-
-		case lineKindBlockTitle:
-			node.rawTitle = line[1:]
-			line = ""
-			continue
-
-		case lineKindAdmonition:
-			node.kind = nodeKindParagraph
-			node.style |= styleAdmonition
-			node.parseLineAdmonition(line)
-			line, c = doc.consumeLinesUntil(
-				node,
-				lineKindEmpty,
-				[]int{
-					nodeKindBlockListingDelimiter,
-					nodeKindBlockLiteralDelimiter,
-					nodeKindBlockLiteralNamed,
-					lineKindListContinue,
-				})
-			parent.addChild(node)
-			node = new(adocNode)
-			continue
-
-		case nodeKindSectionL1, nodeKindSectionL2,
-			nodeKindSectionL3, nodeKindSectionL4,
-			nodeKindSectionL5:
-
-			node.kind = doc.kind
-			node.raw.WriteString(
-				// BUG: "= =a" could become "a", it should be "=a"
-				strings.TrimLeft(line, "= \t"),
-			)
-
-			var expParent = doc.kind - 1
-			for parent.kind != expParent {
-				parent = parent.parent
-				if parent == nil {
-					parent = doc.content
-					break
-				}
-			}
-			parent.addChild(node)
-			parent = node
-			node = new(adocNode)
-			line = ""
-			continue
-
-		case nodeKindLiteralParagraph:
-			if node.IsStyleAdmonition() {
-				node.kind = nodeKindParagraph
-				node.raw.WriteString(spaces + line)
-				node.raw.WriteByte('\n')
-				line, c = doc.consumeLinesUntil(
-					node,
-					lineKindEmpty,
-					[]int{
-						nodeKindBlockListingDelimiter,
-						nodeKindBlockLiteralDelimiter,
-						nodeKindBlockLiteralNamed,
-						lineKindListContinue,
-					})
-			} else {
-				node.kind = doc.kind
-				node.raw.WriteString(spaces + line)
-				node.raw.WriteByte('\n')
-				line, c = doc.consumeLinesUntil(
-					node,
-					lineKindEmpty,
-					[]int{
-						nodeKindBlockListingDelimiter,
-						nodeKindBlockLiteralDelimiter,
-						nodeKindBlockLiteralNamed,
-					})
-			}
-			parent.addChild(node)
-			node = new(adocNode)
-
-		case nodeKindBlockLiteralDelimiter:
-			node.kind = doc.kind
-			line, c = doc.consumeLinesUntil(node, doc.kind, nil)
-			parent.addChild(node)
-			node = new(adocNode)
-
-		case nodeKindBlockLiteralNamed:
-			node.kind = doc.kind
-			line, c = doc.consumeLinesUntil(node, lineKindEmpty, nil)
-			parent.addChild(node)
-			node = new(adocNode)
-
-		case nodeKindBlockListingDelimiter:
-			node.kind = doc.kind
-			line, c = doc.consumeLinesUntil(node, doc.kind, nil)
-			parent.addChild(node)
-			node = new(adocNode)
-
-		case nodeKindListOrderedItem:
-			line, c = doc.parseListOrdered(parent, node.rawTitle, line)
-			parent.addChild(node)
-			node = new(adocNode)
-			continue
-
-		case nodeKindListUnorderedItem:
-			line, c = doc.parseListUnordered(parent, node, line)
-			parent.addChild(node)
-			node = new(adocNode)
-			continue
-
-		case nodeKindListDescriptionItem:
-			line, c = doc.parseListDescription(parent, node, line)
-			parent.addChild(node)
-			node = new(adocNode)
-			continue
-
-		case nodeKindBlockImage:
-			if node.parseImage(line) {
-				node.kind = doc.kind
-				line = ""
-			} else {
-				node.kind = nodeKindParagraph
-				node.raw.WriteString("image::" + line)
-				node.raw.WriteByte('\n')
-				line, c = doc.consumeLinesUntil(
-					node,
-					lineKindEmpty,
-					[]int{
-						nodeKindBlockListingDelimiter,
-						nodeKindBlockLiteralDelimiter,
-						nodeKindBlockLiteralNamed,
-						lineKindListContinue,
-					})
-			}
-			parent.addChild(node)
-			node = new(adocNode)
-			continue
-
-		case nodeKindBlockOpen, nodeKindBlockExample, nodeKindBlockSidebar:
-			node.kind = doc.kind
-			doc.parseBlock(node, doc.kind)
-			parent.addChild(node)
-			node = new(adocNode)
-			line = ""
-			continue
-
-		case nodeKindBlockVideo:
-			if node.parseVideo(line) {
-				node.kind = doc.kind
-				line = ""
-			} else {
-				node.kind = nodeKindParagraph
-				node.raw.WriteString("video::" + line)
-				node.raw.WriteByte('\n')
-				line, c = doc.consumeLinesUntil(
-					node,
-					lineKindEmpty,
-					[]int{
-						nodeKindBlockListingDelimiter,
-						nodeKindBlockLiteralDelimiter,
-						nodeKindBlockLiteralNamed,
-						lineKindListContinue,
-					})
-			}
-			parent.addChild(node)
-			node = new(adocNode)
-			continue
-
-		case nodeKindBlockAudio:
-			if node.parseBlockAudio(line) {
-				node.kind = doc.kind
-				line = ""
-			} else {
-				node.kind = nodeKindParagraph
-				node.raw.WriteString("audio::" + line)
-				node.raw.WriteByte('\n')
-				line, c = doc.consumeLinesUntil(
-					node,
-					lineKindEmpty,
-					[]int{
-						nodeKindBlockListingDelimiter,
-						nodeKindBlockLiteralDelimiter,
-						nodeKindBlockLiteralNamed,
-						lineKindListContinue,
-					})
-			}
-			parent.addChild(node)
-			node = new(adocNode)
-		}
-		line = ""
-	}
-	parent.addChild(node)
-
-	return nil
+	doc.parseBlock(parent, 0)
 }
 
 //
@@ -847,11 +564,10 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 		}
 
 		switch doc.kind {
+		case term:
+			return
 		case lineKindEmpty:
-			if node.kind != nodeKindUnknown {
-				parent.addChild(node)
-				node = &adocNode{}
-			}
+			line = ""
 			continue
 		case lineKindBlockComment:
 			doc.parseIgnoreCommentBlock()
@@ -861,10 +577,6 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 			line = ""
 			continue
 		case lineKindHorizontalRule:
-			if node.kind != nodeKindUnknown {
-				parent.addChild(node)
-				node = &adocNode{}
-			}
 			node.kind = doc.kind
 			parent.addChild(node)
 			node = &adocNode{}
@@ -876,7 +588,6 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 			node = &adocNode{}
 			line = ""
 			continue
-
 		case lineKindAttribute:
 			key, value := doc.parseAttribute(line, false)
 			if len(key) > 0 {
@@ -888,28 +599,22 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 				line = ""
 				continue
 			}
-			if node.kind == nodeKindUnknown {
-				node.kind = nodeKindParagraph
-				node.raw.WriteString(line)
-				node.raw.WriteByte('\n')
-				line, c = doc.consumeLinesUntil(
-					node,
-					lineKindEmpty,
-					[]int{
-						term,
-						nodeKindBlockListingDelimiter,
-						nodeKindBlockLiteralDelimiter,
-						nodeKindBlockLiteralNamed,
-						lineKindListContinue,
-					})
-				parent.addChild(node)
-				node = &adocNode{}
-			} else {
-				node.raw.WriteString(line)
-				line = ""
-			}
+			node.kind = nodeKindParagraph
+			node.raw.WriteString(line)
+			node.raw.WriteByte('\n')
+			line, c = doc.consumeLinesUntil(
+				node,
+				lineKindEmpty,
+				[]int{
+					term,
+					nodeKindBlockListingDelimiter,
+					nodeKindBlockLiteralDelimiter,
+					nodeKindBlockLiteralNamed,
+					lineKindListContinue,
+				})
+			parent.addChild(node)
+			node = &adocNode{}
 			continue
-
 		case lineKindStyle:
 			styleName, styleKind := parseStyle(line)
 			if styleKind != styleNone {
@@ -926,11 +631,51 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 			line = ""
 			continue
 
-		case lineKindText, lineKindListContinue,
-			nodeKindSectionL1, nodeKindSectionL2,
+		case lineKindText, lineKindListContinue:
+			node.kind = nodeKindParagraph
+			node.raw.WriteString(line)
+			node.raw.WriteByte('\n')
+			line, c = doc.consumeLinesUntil(
+				node,
+				lineKindEmpty,
+				[]int{
+					term,
+					nodeKindBlockListingDelimiter,
+					nodeKindBlockLiteralDelimiter,
+					nodeKindBlockLiteralNamed,
+					lineKindListContinue,
+				})
+			parent.addChild(node)
+			node = &adocNode{}
+			continue
+
+		case lineKindBlockTitle:
+			node.rawTitle = line[1:]
+			line = ""
+			continue
+
+		case lineKindAdmonition:
+			node.kind = nodeKindParagraph
+			node.style |= styleAdmonition
+			node.parseLineAdmonition(line)
+			line, c = doc.consumeLinesUntil(
+				node,
+				lineKindEmpty,
+				[]int{
+					term,
+					nodeKindBlockListingDelimiter,
+					nodeKindBlockLiteralDelimiter,
+					nodeKindBlockLiteralNamed,
+					lineKindListContinue,
+				})
+			parent.addChild(node)
+			node = new(adocNode)
+			continue
+
+		case nodeKindSectionL1, nodeKindSectionL2,
 			nodeKindSectionL3, nodeKindSectionL4,
 			nodeKindSectionL5:
-			if node.kind == nodeKindUnknown {
+			if term == nodeKindBlockOpen {
 				node.kind = nodeKindParagraph
 				node.raw.WriteString(line)
 				node.raw.WriteByte('\n')
@@ -945,31 +690,59 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 						lineKindListContinue,
 					})
 				parent.addChild(node)
-				node = &adocNode{}
-			} else {
-				node.raw.WriteString(line)
-				line = ""
+				node = new(adocNode)
+				continue
 			}
-			continue
 
-		case lineKindBlockTitle:
-			node.rawTitle = line[1:]
+			node.kind = doc.kind
+			node.raw.WriteString(
+				// BUG: "= =a" could become "a", it should be "=a"
+				strings.TrimLeft(line, "= \t"),
+			)
+
+			var expParent = doc.kind - 1
+			for parent.kind != expParent {
+				parent = parent.parent
+				if parent == nil {
+					parent = doc.content
+					break
+				}
+			}
+			parent.addChild(node)
+			parent = node
+			node = new(adocNode)
 			line = ""
 			continue
 
 		case nodeKindLiteralParagraph:
-			node.kind = doc.kind
-			node.raw.WriteString(spaces + line)
-			node.raw.WriteByte('\n')
-			line, c = doc.consumeLinesUntil(
-				node,
-				lineKindEmpty,
-				[]int{
-					term,
-					nodeKindBlockListingDelimiter,
-					nodeKindBlockLiteralNamed,
-					nodeKindBlockLiteralDelimiter,
-				})
+			if node.IsStyleAdmonition() {
+				node.kind = nodeKindParagraph
+				node.raw.WriteString(spaces + line)
+				node.raw.WriteByte('\n')
+				line, c = doc.consumeLinesUntil(
+					node,
+					lineKindEmpty,
+					[]int{
+						term,
+						nodeKindBlockListingDelimiter,
+						nodeKindBlockLiteralDelimiter,
+						nodeKindBlockLiteralNamed,
+						lineKindListContinue,
+					})
+			} else {
+				node.kind = doc.kind
+				node.raw.WriteString(spaces + line)
+				node.raw.WriteByte('\n')
+				line, c = doc.consumeLinesUntil(
+					node,
+					lineKindEmpty,
+					[]int{
+						term,
+						nodeKindBlockListingDelimiter,
+						nodeKindBlockLiteralNamed,
+						nodeKindBlockLiteralDelimiter,
+					})
+			}
 			parent.addChild(node)
 			node = &adocNode{}
 			continue
@@ -979,21 +752,24 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 			line, c = doc.consumeLinesUntil(node, doc.kind, nil)
 			parent.addChild(node)
 			node = &adocNode{}
+			continue
 
 		case nodeKindBlockLiteralNamed:
 			node.kind = doc.kind
 			line, c = doc.consumeLinesUntil(node, lineKindEmpty, nil)
 			parent.addChild(node)
 			node = &adocNode{}
+			continue
 
 		case nodeKindBlockListingDelimiter:
 			node.kind = doc.kind
 			line, c = doc.consumeLinesUntil(node, doc.kind, nil)
 			parent.addChild(node)
 			node = &adocNode{}
+			continue
 
 		case nodeKindListOrderedItem:
-			line, c = doc.parseListOrdered(parent, "", line)
+			line, c = doc.parseListOrdered(parent, node.rawTitle, line)
 			parent.addChild(node)
 			node = &adocNode{}
 			continue
@@ -1031,8 +807,61 @@ func (doc *Document) parseBlock(parent *adocNode, term int) {
 			}
 			parent.addChild(node)
 			node = &adocNode{}
-		case term:
-			return
+			continue
+
+		case nodeKindBlockOpen, nodeKindBlockExample,
+			nodeKindBlockSidebar:
+			node.kind = doc.kind
+			doc.parseBlock(node, doc.kind)
+			parent.addChild(node)
+			node = new(adocNode)
+			line = ""
+			continue
+
+		case nodeKindBlockVideo:
+			if node.parseVideo(line) {
+				node.kind = doc.kind
+				line = ""
+			} else {
+				node.kind = nodeKindParagraph
+				node.raw.WriteString("video::" + line)
+				node.raw.WriteByte('\n')
+				line, c = doc.consumeLinesUntil(
+					node,
+					lineKindEmpty,
+					[]int{
+						term,
+						nodeKindBlockListingDelimiter,
+						nodeKindBlockLiteralDelimiter,
+						nodeKindBlockLiteralNamed,
+						lineKindListContinue,
+					})
+			}
+			parent.addChild(node)
+			node = new(adocNode)
+			continue
+
+		case nodeKindBlockAudio:
+			if node.parseBlockAudio(line) {
+				node.kind = doc.kind
+				line = ""
+			} else {
+				node.kind = nodeKindParagraph
+				node.raw.WriteString("audio::" + line)
+				node.raw.WriteByte('\n')
+				line, c = doc.consumeLinesUntil(
+					node,
+					lineKindEmpty,
+					[]int{
+						term,
+						nodeKindBlockListingDelimiter,
+						nodeKindBlockLiteralDelimiter,
+						nodeKindBlockLiteralNamed,
+						lineKindListContinue,
+					})
+			}
+			parent.addChild(node)
+			node = new(adocNode)
 		}
 		line = ""
 	}
